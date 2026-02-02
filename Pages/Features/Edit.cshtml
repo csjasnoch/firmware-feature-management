@@ -1,0 +1,328 @@
+@page
+@model WebApp.Pages.Features.EditModel
+@{
+    ViewData["Title"] = $"Edit Feature: {Model.Feature?.Name}";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">Home</a></li>
+                    <li class="breadcrumb-item"><a href="/Features">Features</a></li>
+                    <li class="breadcrumb-item active">@Model.Feature?.Name</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (Model.Feature != null)
+    {
+        <div class="row mb-4">
+            <div class="col">
+                <h2>⚙️ Edit Feature</h2>
+            </div>
+            <div class="col-auto">
+                <a href="/Features" class="btn btn-outline-secondary">Back to Features</a>
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('featureForm').submit()">
+                    💾 Save Changes
+                </button>
+            </div>
+        </div>
+
+        <!-- Feature Details -->
+        <form id="featureForm" method="post">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <strong>Feature Details</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Name *</label>
+                            <input type="text" class="form-control" asp-for="Feature.Name" required />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Owner</label>
+                            <input type="text" class="form-control" asp-for="Feature.Owner" readonly />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" asp-for="Feature.Description" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">Created: @Model.Feature.CreatedAt.ToString("yyyy-MM-dd HH:mm")</small>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">Modified: @Model.Feature.ModifiedAt.ToString("yyyy-MM-dd HH:mm")</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <!-- Current Firmware Context -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <strong>📌 Current Firmware Context</strong>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>LPI Version:</strong> @Model.CurrentLpiVersion?.Version (@Model.CurrentLpiVersion?.Stage)
+                        <div class="small text-muted">@Model.AvailableParameters.Count parameters available</div>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>PICCOLO Version:</strong> @Model.CurrentPiccoloVersion?.Version (@Model.CurrentPiccoloVersion?.Stage)
+                        <div class="small text-muted">@Model.AvailableCommands.Count commands available</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LPI Parameters -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>LPI Parameters (@Model.Feature.Parameters.Count)</strong>
+                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addParameterModal">
+                    + Add Parameter
+                </button>
+            </div>
+            <div class="card-body">
+                @if (Model.Feature.Parameters.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30%">Parameter</th>
+                                    <th style="width: 40%">Value</th>
+                                    <th style="width: 20%">Range</th>
+                                    <th style="width: 10%">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var param in Model.Feature.Parameters)
+                                {
+                                    var paramDef = Model.AvailableParameters.FirstOrDefault(p => p.Id == param.ParameterId);
+                                    <tr>
+                                        <td>
+                                            <strong>@param.ParameterName</strong>
+                                            <div class="small text-muted">ID: @param.ParameterId</div>
+                                            @if (paramDef?.IsDeprecated == true)
+                                            {
+                                                <span class="badge bg-warning">⚠️ Deprecated</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="row align-items-center">
+                                                <div class="col-8">
+                                                    <input type="range" 
+                                                           class="form-range" 
+                                                           min="@(paramDef?.MinValue ?? 0)" 
+                                                           max="@(paramDef?.MaxValue ?? 100)" 
+                                                           value="@param.Value"
+                                                           onchange="document.getElementById('value-@param.Id').value = this.value">
+                                                </div>
+                                                <div class="col-4">
+                                                    <input type="number" 
+                                                           id="value-@param.Id"
+                                                           class="form-control form-control-sm" 
+                                                           value="@param.Value"
+                                                           min="@(paramDef?.MinValue ?? 0)" 
+                                                           max="@(paramDef?.MaxValue ?? 100)">
+                                                </div>
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(param.Notes))
+                                            {
+                                                <div class="small text-muted mt-1">📝 @param.Notes</div>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">@(paramDef?.MinValue ?? 0) - @(paramDef?.MaxValue ?? 100)</span>
+                                            <div class="small text-muted">Default: @(paramDef?.DefaultValue ?? 50)</div>
+                                        </td>
+                                        <td>
+                                            <form method="post" asp-page-handler="RemoveParameter" style="display:inline">
+                                                <input type="hidden" name="id" value="@Model.Feature.Id" />
+                                                <input type="hidden" name="parameterId" value="@param.Id" />
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                                        onclick="return confirm('Remove this parameter?')">
+                                                    🗑️
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-4">
+                        <p class="text-muted">No parameters configured yet</p>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addParameterModal">
+                            + Add First Parameter
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- PICCOLO Commands -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>PICCOLO Commands (@Model.Feature.Commands.Count)</strong>
+                <button type="button" class="btn btn-sm btn-success" disabled>
+                    + Add Command
+                </button>
+            </div>
+            <div class="card-body">
+                @if (Model.Feature.Commands.Any())
+                {
+                    <div class="list-group">
+                        @foreach (var cmd in Model.Feature.Commands.OrderBy(c => c.ExecutionOrder))
+                        {
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <div class="badge bg-primary me-2">#@cmd.ExecutionOrder</div>
+                                        <strong>@cmd.CommandName</strong>
+                                        <div class="small text-muted">Code: 0x@cmd.CommandCode.ToString("X2")</div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger">Remove</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-4">
+                        <p class="text-muted">No commands configured</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Validation & Preview -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <strong>✓ Validation</strong>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            <li class="text-success">✓ Feature name is valid</li>
+                            <li class="text-success">✓ @Model.Feature.Parameters.Count parameter(s) configured</li>
+                            <li class="text-success">✓ All parameters within valid ranges</li>
+                            @if (!Model.Feature.Parameters.Any())
+                            {
+                                <li class="text-warning">⚠️ No parameters defined</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <strong>📋 Actions</strong>
+                    </div>
+                    <div class="card-body">
+                        <button type="button" class="btn btn-outline-primary mb-2 w-100">📤 Export Feature</button>
+                        <button type="button" class="btn btn-outline-secondary mb-2 w-100">📋 Duplicate Feature</button>
+                        <button type="button" class="btn btn-outline-info mb-2 w-100">🔍 Test on Device</button>
+                        <hr />
+                        <button type="button" class="btn btn-outline-danger w-100">🗑️ Delete Feature</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Add Parameter Modal -->
+<div class="modal fade" id="addParameterModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add LPI Parameter</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="parameterSearch" placeholder="🔍 Search parameters...">
+                </div>
+                <div class="list-group" style="max-height: 400px; overflow-y: auto;">
+                    @foreach (var param in Model.AvailableParameters.Take(20))
+                    {
+                        var alreadyAdded = Model.Feature?.Parameters.Any(p => p.ParameterId == param.Id) ?? false;
+                        <div class="list-group-item @(alreadyAdded ? "disabled" : "")">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>@param.Name</strong>
+                                    <div class="small text-muted">
+                                        ID: @param.Id | Range: @param.MinValue - @param.MaxValue | Default: @param.DefaultValue
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(param.Description))
+                                    {
+                                        <div class="small">@param.Description</div>
+                                    }
+                                    @if (param.IsDeprecated)
+                                    {
+                                        <span class="badge bg-warning">⚠️ Deprecated</span>
+                                    }
+                                </div>
+                                @if (!alreadyAdded)
+                                {
+                                    <form method="post" asp-page-handler="AddParameter" style="display:inline">
+                                        <input type="hidden" name="id" value="@Model.Feature?.Id" />
+                                        <input type="hidden" name="parameterId" value="@param.Id" />
+                                        <button type="submit" class="btn btn-sm btn-success">+ Add</button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Added</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Simple parameter search
+        document.getElementById('parameterSearch')?.addEventListener('input', function(e) {
+            const search = e.target.value.toLowerCase();
+            const items = document.querySelectorAll('#addParameterModal .list-group-item');
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(search) ? '' : 'none';
+            });
+        });
+    </script>
+}

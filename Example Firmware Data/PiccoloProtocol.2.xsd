@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--Schema for validating PiccoloProtocol.xml used by firmware protocol definitions-->
+<!--This is a placeholder schema file for PiccoloProtocol version 2-->
+
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:ns0="Starkey.FWE.PiccoloProtocol.2"
+           targetNamespace="Starkey.FWE.PiccoloProtocol.2">
+
+  <xs:element name="Protocol">
+    <xs:complexType>
+      <xs:all>
+        <xs:element name="Primary" maxOccurs="1" type="ns0:PrimaryType"/>
+      </xs:all>
+      <xs:attributeGroup ref="ns0:node-id"/>
+    </xs:complexType>
+  </xs:element>
+  
+  <xs:complexType name="PrimaryType">
+    <xs:all>
+      <xs:element name="Description" type="xs:string"/>
+      <xs:element name="Branch" maxOccurs="1" type="ns0:BranchType"/>
+    </xs:all>
+    <xs:attributeGroup ref="ns0:name_id"/>
+    <xs:attributeGroup ref="ns0:node-id"/>
+  </xs:complexType>
+  
+  <xs:complexType name="BranchType">
+    <xs:all>
+      <xs:element name="Description" type="xs:string"/>
+      <xs:element name="ProtocolVersion" type="ns0:ProtocolVersionType" maxOccurs="1"/>
+    </xs:all>
+    <xs:attributeGroup ref="ns0:name_id"/>
+    <xs:attributeGroup ref="ns0:node-id"/>
+  </xs:complexType>
+  
+  <xs:complexType name="ProtocolVersionType">
+    <xs:all>
+      <xs:element name="MessageExchangeCollection">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="MessageExchange" minOccurs="0" maxOccurs="unbounded" type="ns0:MessageExchangeType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="FieldDefinitionCollection">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="FieldDefinition" minOccurs="0" maxOccurs="unbounded" type="ns0:FieldDefinitionType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:all>
+    <xs:attribute name="identifier" type="xs:int"/>
+    <xs:attribute name="major" type="xs:int"/>
+    <xs:attribute name="minor" type="xs:int"/>
+    <xs:attributeGroup ref="ns0:node-id"/>
+  </xs:complexType>
+  
+  <xs:complexType name="MessageExchangeType">
+    <xs:all>
+      <xs:element name="Nickname" type="xs:string"/>
+      <xs:element name="Description" type="xs:string"/>
+      <xs:element name="EngineeringNote" type="xs:string" minOccurs="0"/>
+      <xs:element name="ServiceId" type="xs:int"/>
+      <xs:element name="RevisionSequence">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Revision" minOccurs="0" maxOccurs="unbounded" type="ns0:RevisionType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:all>
+    <xs:attributeGroup ref="ns0:name_id"/>
+    <xs:attributeGroup ref="ns0:node-id"/>
+  </xs:complexType>
+  
+  <xs:complexType name="RevisionType">
+    <xs:all>
+      <xs:element name="Nickname" type="xs:string"/>
+      <xs:element name="Description" type="xs:string"/>
+      <xs:element name="CapabilityCommand" type="ns0:CapabilityCommandType" minOccurs="0"/>
+      <xs:element name="ProgrammingMode" type="xs:boolean"/>
+      <xs:element name="FactoryMode" type="xs:boolean"/>
+      <xs:element name="RequestFieldSequence" type="ns0:FieldSequenceType" minOccurs="0"/>
+      <xs:element name="ResponseFieldSequence" type="ns0:FieldSequenceType" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="id" type="xs:int"/>
+    <xs:attribute name="major" type="xs:int"/>
+    <xs:attribute name="minor" type="xs:int"/>
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attributeGroup ref="ns0:node-id"/>
+  </xs:complexType>
+  
+  <xs:complexType name="FieldDefinitionType">
+    <xs:all>
+      <xs:element name="Description" type="xs:string"/>
+      <xs:element name="DataType" type="ns0:DataTypeType"/>
+      <xs:element name="BitOffset" type="xs:int" minOccurs="0"/>
+      <xs:element name="BitWidth" type="xs:int" minOccurs="0"/>
+    </xs:all>
+    <xs:attributeGroup ref="ns0:name_id"/>
+    <xs:attributeGroup ref="ns0:node-id"/>
+  </xs:complexType>
+  
+  <xs:complexType name="CapabilityCommandType">
+    <xs:attribute name="bit" type="xs:int"/>
+    <xs:attribute name="byte" type="xs:int"/>
+    <xs:attribute name="name" type="xs:string"/>
+  </xs:complexType>
+  
+  <xs:complexType name="FieldSequenceType">
+    <xs:sequence>
+      <xs:element name="FieldReference" minOccurs="0" maxOccurs="unbounded" type="ns0:FieldReferenceType"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:int"/>
+    <xs:attribute name="max" type="xs:int"/>
+    <xs:attribute name="min" type="xs:int"/>
+    <xs:attribute name="name" type="xs:string"/>
+  </xs:complexType>
+  
+  <xs:complexType name="FieldReferenceType">
+    <xs:all>
+      <xs:element name="FieldName" type="xs:string"/>
+      <xs:element name="ArgName" type="xs:string"/>
+    </xs:all>
+    <xs:attribute name="bit" type="xs:int"/>
+    <xs:attribute name="byte" type="xs:int"/>
+  </xs:complexType>
+  
+  <xs:simpleType name="DataTypeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Boolean"/>
+      <xs:enumeration value="Int8"/>
+      <xs:enumeration value="UInt8"/>
+      <xs:enumeration value="Int16"/>
+      <xs:enumeration value="UInt16"/>
+      <xs:enumeration value="Int32"/>
+      <xs:enumeration value="UInt32"/>
+      <xs:enumeration value="FixedPoint"/>
+      <xs:enumeration value="EnumerationReference"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Common attribute groups -->
+  <xs:attributeGroup name="name_id">
+    <xs:attribute name="id" type="xs:int"/>
+    <xs:attribute name="name" type="xs:string"/>
+  </xs:attributeGroup>
+  
+  <xs:attributeGroup name="node-id">
+    <xs:attribute name="node-id" type="xs:int"/>
+  </xs:attributeGroup>
+
+</xs:schema>
