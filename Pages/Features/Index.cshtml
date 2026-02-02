@@ -1,0 +1,73 @@
+@page
+@model WebApp.Pages.Features.IndexModel
+@{
+    ViewData["Title"] = "Features";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <h2>Features</h2>
+        </div>
+        <div class="col-auto">
+            <a href="/Features/Create" class="btn btn-primary">+ New Feature</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <strong>All Features (@Model.Features.Count)</strong>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Parameters</th>
+                        <th>Commands</th>
+                        <th>Modified</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var feature in Model.Features)
+                    {
+                        <tr>
+                            <td><strong>@feature.Name</strong></td>
+                            <td>@feature.Description</td>
+                            <td>
+                                @if (feature.Parameters.Any())
+                                {
+                                    <span class="badge bg-info">@feature.Parameters.Count</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">0</span>
+                                }
+                            </td>
+                            <td>
+                                @if (feature.Commands.Any())
+                                {
+                                    <span class="badge bg-secondary">@feature.Commands.Count</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">0</span>
+                                }
+                            </td>
+                            <td>
+                                <div>@feature.ModifiedAt.ToString("yyyy-MM-dd")</div>
+                                <div class="small text-muted">@feature.ModifiedAt.ToString("HH:mm")</div>
+                            </td>
+                            <td>
+                                <a href="/Features/Edit?id=@feature.Id" class="btn btn-sm btn-outline-primary">Edit</a>
+                                <button class="btn btn-sm btn-outline-danger">Delete</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

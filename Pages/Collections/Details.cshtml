@@ -1,0 +1,212 @@
+@page
+@model WebApp.Pages.Collections.DetailsModel
+@{
+    ViewData["Title"] = Model.Collection?.Name ?? "Collection Details";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">Home</a></li>
+                    <li class="breadcrumb-item"><a href="/Collections">Collections</a></li>
+                    <li class="breadcrumb-item active">@Model.Collection?.Name</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    @if (Model.Collection != null)
+    {
+        <div class="row mb-4">
+            <div class="col">
+                <h2>📦 @Model.Collection.Name</h2>
+                <p class="text-muted">@Model.Collection.Description</p>
+            </div>
+            <div class="col-auto">
+                @if (!Model.Collection.IsLocked)
+                {
+                    <a href="/Collections/Edit?id=@Model.Collection.Id" class="btn btn-primary">Edit Collection</a>
+                }
+                <a href="/Collections" class="btn btn-outline-secondary">Back to List</a>
+            </div>
+        </div>
+
+        <!-- NPI Program & Firmware Versions -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <strong>NPI Program & Firmware Versions</strong>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <strong>NPI Program:</strong> @Model.Collection.TargetProgram?.Name (v@Model.Collection.TargetProgram?.MajorVersion.x - @Model.Collection.TargetProgram?.Status)
+                        <br/>
+                        <small class="text-muted">@Model.Collection.TargetProgram?.Description</small>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>LPI Version</h6>
+                        <div>
+                            <strong>@Model.Collection.RequiredLpiVersion?.Version</strong> 
+                            <span class="badge bg-success">@Model.Collection.RequiredLpiVersion?.Stage</span>
+                            @if (Model.Collection.RequiredLpiVersion?.Stage == FirmwareReleaseStage.T3_Released)
+                            {
+                                <span>📌 Locked</span>
+                            }
+                        </div>
+                        <div class="small text-muted">
+                            Released: @Model.Collection.RequiredLpiVersion?.ReleasedAt.ToString("yyyy-MM-dd")
+                        </div>
+                        <div class="small text-muted">
+                            @Model.Collection.RequiredLpiVersion?.Parameters.Count parameters available
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>PICCOLO Version</h6>
+                        <div>
+                            <strong>@Model.Collection.RequiredPiccoloVersion?.Version</strong> 
+                            <span class="badge bg-success">@Model.Collection.RequiredPiccoloVersion?.Stage</span>
+                            @if (Model.Collection.RequiredPiccoloVersion?.Stage == FirmwareReleaseStage.T3_Released)
+                            {
+                                <span>📌 Locked</span>
+                            }
+                        </div>
+                        <div class="small text-muted">
+                            Released: @Model.Collection.RequiredPiccoloVersion?.ReleasedAt.ToString("yyyy-MM-dd")
+                        </div>
+                        <div class="small text-muted">
+                            @Model.Collection.RequiredPiccoloVersion?.Commands.Count commands available
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <strong>Features (@Model.Collection.Features.Count)</strong>
+            </div>
+            <div class="card-body">
+                @if (Model.Collection.Features.Any())
+                {
+                    <div class="list-group">
+                        @foreach (var feature in Model.Collection.Features)
+                        {
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h6 class="mb-1">@feature.Name</h6>
+                                        <p class="mb-1 small">@feature.Description</p>
+                                        <div class="small text-muted">
+                                            @if (feature.Parameters.Any())
+                                            {
+                                                <span class="badge bg-info">@feature.Parameters.Count parameters</span>
+                                            }
+                                            @if (feature.Commands.Any())
+                                            {
+                                                <span class="badge bg-secondary">@feature.Commands.Count commands</span>
+                                            }
+                                            <span>Modified: @feature.ModifiedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <a href="/Features/Edit?id=@feature.Id" class="btn btn-sm btn-outline-primary">Edit</a>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted">No features in this collection yet.</p>
+                    <a href="/Features/Create?collectionId=@Model.Collection.Id" class="btn btn-primary">Add Feature</a>
+                }
+            </div>
+        </div>
+
+        <!-- Metadata -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <strong>Collection Metadata</strong>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Owner:</dt>
+                            <dd class="col-sm-8">@Model.Collection.Owner</dd>
+                            
+                            <dt class="col-sm-4">Visibility:</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-primary">@Model.Collection.Visibility</span>
+                            </dd>
+                            
+                            <dt class="col-sm-4">Created:</dt>
+                            <dd class="col-sm-8">@Model.Collection.CreatedAt.ToString("yyyy-MM-dd HH:mm")</dd>
+                            
+                            <dt class="col-sm-4">Modified:</dt>
+                            <dd class="col-sm-8">@Model.Collection.ModifiedAt.ToString("yyyy-MM-dd HH:mm")</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Tags:</dt>
+                            <dd class="col-sm-8">
+                                @foreach (var tag in Model.Collection.Tags)
+                                {
+                                    <span class="badge bg-info">@tag</span>
+                                }
+                            </dd>
+                            
+                            <dt class="col-sm-4">Shared With:</dt>
+                            <dd class="col-sm-8">
+                                @if (Model.Collection.SharedWith.Any())
+                                {
+                                    @string.Join(", ", Model.Collection.SharedWith)
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Not shared</span>
+                                }
+                            </dd>
+                            
+                            @if (Model.Collection.IsLocked)
+                            {
+                                <dt class="col-sm-4">Lock Status:</dt>
+                                <dd class="col-sm-8">
+                                    <span class="badge bg-warning">🔒 Locked</span>
+                                    <div class="small">@Model.Collection.LockedReason</div>
+                                </dd>
+                            }
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <strong>Actions</strong>
+            </div>
+            <div class="card-body">
+                <button class="btn btn-outline-primary">Export Collection</button>
+                <button class="btn btn-outline-secondary">Duplicate</button>
+                <button class="btn btn-outline-info">Share</button>
+                @if (Model.Collection.IsLocked)
+                {
+                    <button class="btn btn-outline-warning">Unlock</button>
+                }
+                else
+                {
+                    <button class="btn btn-outline-warning">Lock</button>
+                }
+            </div>
+        </div>
+    }
+</div>

@@ -1,0 +1,159 @@
+@page
+@model WebApp.Pages.Collections.IndexModel
+@{
+    ViewData["Title"] = "Feature Collections";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <h2>Feature Collections</h2>
+        </div>
+        <div class="col-auto">
+            <a href="/Collections/Create" class="btn btn-primary">+ New Collection</a>
+        </div>
+    </div>
+
+    <!-- Current Device Context -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Current Device Context</strong>
+            <button class="btn btn-sm btn-outline-secondary">Change</button>
+        </div>
+        <div class="card-body">
+            @if (Model.CurrentProgram != null)
+            {
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>NPI Program:</strong> @Model.CurrentProgram.Name (v@Model.CurrentProgram.MajorVersion.x - @Model.CurrentProgram.Status)
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-6">
+                        <strong>LPI Version:</strong> @Model.CurrentLpiVersion?.Version (@Model.CurrentLpiVersion?.Stage) 📌
+                    </div>
+                    <div class="col-md-6">
+                        <strong>PICCOLO Version:</strong> @Model.CurrentPiccoloVersion?.Version (@Model.CurrentPiccoloVersion?.Stage) 📌
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-12">
+                        <small class="text-muted">
+                            Version Preferences: 
+                            <span class="badge bg-success">T3</span>
+                            <span class="badge bg-secondary">T2</span>
+                            <span class="badge bg-secondary">T1</span>
+                            <span class="badge bg-secondary">T0</span>
+                        </small>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Collections List -->
+    <div class="card">
+        <div class="card-header">
+            <strong>Collections (@Model.Collections.Count)</strong>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Name / Versions</th>
+                        <th>Features</th>
+                        <th>Modified</th>
+                        <th>Compatibility</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var collection in Model.Collections)
+                    {
+                        <tr>
+                            <td>
+                                <div>
+                                    <strong>📦 @collection.Name</strong>
+                                    @if (collection.IsLocked)
+                                    {
+                                        <span class="badge bg-secondary">🔒 Locked</span>
+                                    }
+                                </div>
+                                <div class="small text-muted">
+                                    @collection.TargetProgram?.Name (@collection.TargetProgram?.Status) | 
+                                    LPI @collection.RequiredLpiVersion?.Version | 
+                                    PICCOLO @collection.RequiredPiccoloVersion?.Version
+                                </div>
+                                @if (collection.RequiredLpiVersion?.Stage == FirmwareReleaseStage.T0_Test || 
+                                     collection.RequiredLpiVersion?.Stage == FirmwareReleaseStage.T1_Alpha)
+                                {
+                                    <div class="small">
+                                        <span class="badge bg-warning">🧪 @collection.RequiredLpiVersion?.Stage</span>
+                                    </div>
+                                }
+                                <div class="small">
+                                    @foreach (var tag in collection.Tags.Take(3))
+                                    {
+                                        <span class="badge bg-info">@tag</span>
+                                    }
+                                </div>
+                                <div class="small text-muted">
+                                    @if (collection.Visibility == CollectionVisibility.Team && collection.SharedWith.Any())
+                                    {
+                                        <span>👥 Shared: @string.Join(", ", collection.SharedWith.Take(2))</span>
+                                        @if (collection.SharedWith.Count > 2)
+                                        {
+                                            <span>...</span>
+                                        }
+                                    }
+                                    else if (collection.Visibility == CollectionVisibility.Private)
+                                    {
+                                        <span>👤 Private</span>
+                                    }
+                                </div>
+                            </td>
+                            <td>@collection.Features.Count</td>
+                            <td>
+                                <div>@collection.ModifiedAt.ToString("yyyy-MM-dd")</div>
+                                <div class="small text-muted">@collection.ModifiedAt.ToString("HH:mm")</div>
+                            </td>
+                            <td class="@Model.GetCompatibilityClass(collection)">
+                                <strong>@Model.GetCompatibilityIcon(collection) @Model.GetCompatibilityStatus(collection)</strong>
+                                @if (Model.GetCompatibilityStatus(collection) == "partial")
+                                {
+                                    <div class="small">Version difference</div>
+                                }
+                                @if (Model.GetCompatibilityStatus(collection) == "incompatible")
+                                {
+                                    <div class="small">Major version mismatch</div>
+                                }
+                            </td>
+                            <td>
+                                <a href="/Collections/Details?id=@collection.Id" class="btn btn-sm btn-outline-primary">Open</a>
+                                @if (!collection.IsLocked)
+                                {
+                                    <a href="/Collections/Edit?id=@collection.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-secondary" disabled>View</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .badge {
+            margin-right: 4px;
+        }
+        .table td {
+            vertical-align: middle;
+        }
+    </style>
+}

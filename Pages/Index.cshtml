@@ -1,10 +1,93 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Home";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="text-center mt-5">
+    <h1 class="display-4">Firmware Feature Management System</h1>
+    <p class="lead">Manage features, collections, and firmware versions across NPI programs</p>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">📦 Collections</h5>
+                <p class="card-text">
+                    Organize features into collections tied to specific NPI programs and firmware versions.
+                    Support for Eagan, Elko, Edina, Fridley, and Chaska programs.
+                </p>
+                <a href="/Collections" class="btn btn-primary">View Collections</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">⚙️ Features</h5>
+                <p class="card-text">
+                    Create and manage features with LPI parameters and PICCOLO commands.
+                    Includes directionality, noise reduction, and device initialization features.
+                </p>
+                <a href="/Features" class="btn btn-primary">View Features</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">🔧 Firmware Versions</h5>
+                <p class="card-text">
+                    Browse firmware versions across the release lifecycle: T0 (Test), T1 (Alpha), T2 (Beta), T3 (Released).
+                    Track compatibility and version changes.
+                </p>
+                <a href="#" class="btn btn-primary">View Versions</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <strong>Current Device Context</strong>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6>NPI Program</h6>
+                        <p><strong>Eagan</strong> (v3.x - Current Production)</p>
+                        <small class="text-muted">Gen3 platform with enhanced audio</small>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>LPI Version</h6>
+                        <p><strong>3.2.1</strong> <span class="badge bg-success">T3 - Released</span> 📌</p>
+                        <small class="text-muted">26 parameters available</small>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>PICCOLO Version</h6>
+                        <p><strong>2.5.0</strong> <span class="badge bg-success">T3 - Released</span> 📌</p>
+                        <small class="text-muted">18 commands available</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="alert alert-info">
+            <h5>📋 Quick Start Guide</h5>
+            <ol>
+                <li><strong>Select your NPI Program</strong> - Choose from Eagan, Elko, Edina, Fridley, or Chaska</li>
+                <li><strong>Choose Firmware Versions</strong> - Pick LPI and PICCOLO versions based on release stage</li>
+                <li><strong>Create Features</strong> - Define features with parameters and commands</li>
+                <li><strong>Organize into Collections</strong> - Group features by firmware version compatibility</li>
+                <li><strong>Test & Deploy</strong> - Validate compatibility and deploy to devices</li>
+            </ol>
+        </div>
+    </div>
 </div>
