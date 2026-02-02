@@ -186,7 +186,7 @@
         <!-- PICCOLO Commands -->
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <strong>PICCOLO Commands (@Model.Feature.Commands.Count)</strong>
+                <strong>PICCOLO Commands - State Machine Flow (@Model.Feature.Commands.Count)</strong>
                 <button type="button" class="btn btn-sm btn-success" disabled>
                     + Add Command
                 </button>
@@ -194,19 +194,95 @@
             <div class="card-body">
                 @if (Model.Feature.Commands.Any())
                 {
-                    <div class="list-group">
-                        @foreach (var cmd in Model.Feature.Commands.OrderBy(c => c.ExecutionOrder))
-                        {
-                            <div class="list-group-item">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <div class="badge bg-primary me-2">#@cmd.ExecutionOrder</div>
-                                        <strong>@cmd.CommandName</strong>
-                                        <div class="small text-muted">Code: 0x@cmd.CommandCode.ToString("X2")</div>
+                    <div class="alert alert-info mb-3">
+                        <strong>💡 Command Execution Flow:</strong> Commands execute sequentially. Use status checks to determine next steps. Click a command to view/edit branching logic.
+                    </div>
+                    
+                    <div class="command-flow">
+                        @{
+                            var orderedCommands = Model.Feature.Commands.OrderBy(c => c.ExecutionOrder).ToList();
+                            for (int i = 0; i < orderedCommands.Count; i++)
+                            {
+                                var cmd = orderedCommands[i];
+                                var isStatusCheck = cmd.CommandName.Contains("GetStatus") || cmd.CommandName.Contains("Check");
+                                var isDecisionPoint = isStatusCheck && i < orderedCommands.Count - 1;
+                                
+                                <div class="card mb-2 @(isStatusCheck ? "border-warning" : "border-primary")" style="margin-left: 20px;">
+                                    <div class="card-body py-2">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex align-items-center mb-1">
+                                                    <span class="badge @(isStatusCheck ? "bg-warning" : "bg-primary") me-2">
+                                                        Step @cmd.ExecutionOrder
+                                                    </span>
+                                                    <strong class="me-2">@cmd.CommandName</strong>
+                                                    <code class="small">@string.Format("0x{0:X2}", cmd.CommandCode)</code>
+                                                    @if (isStatusCheck)
+                                                    {
+                                                        <span class="badge bg-info ms-2">🔍 Status Check</span>
+                                                    }
+                                                </div>
+                                                
+                                                @if (!string.IsNullOrEmpty(cmd.Notes))
+                                                {
+                                                    <div class="small text-muted mb-1">
+                                                        📝 @cmd.Notes
+                                                    </div>
+                                                }
+                                                
+                                                @if (cmd.Payload.Any())
+                                                {
+                                                    <div class="small">
+                                                        <strong>Payload:</strong> 
+                                                        <code>[@string.Join(", ", cmd.Payload.Select(b => $"0x{b:X2}"))]</code>
+                                                    </div>
+                                                }
+                                                
+                                                @if (isDecisionPoint)
+                                                {
+                                                    <div class="mt-2 p-2 bg-light rounded">
+                                                        <strong class="small">Decision Point:</strong>
+                                                        <div class="small mt-1">
+                                                            <div class="form-check form-check-inline">
+                                                                <input class="form-check-input" type="radio" name="branch-@cmd.Id" id="success-@cmd.Id" checked>
+                                                                <label class="form-check-label text-success" for="success-@cmd.Id">
+                                                                    ✓ Success → Continue to Step @(cmd.ExecutionOrder + 1)
+                                                                </label>
+                                                            </div>
+                                                            <div class="form-check form-check-inline">
+                                                                <input class="form-check-input" type="radio" name="branch-@cmd.Id" id="failure-@cmd.Id">
+                                                                <label class="form-check-label text-danger" for="failure-@cmd.Id">
+                                                                    ✗ Failure → 
+                                                                    <select class="form-select form-select-sm d-inline-block" style="width: auto;">
+                                                                        <option>Reset & Retry</option>
+                                                                        <option>Skip to Rollback</option>
+                                                                        <option>Abort Process</option>
+                                                                        <option>Log Error & Continue</option>
+                                                                    </select>
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <div class="ms-2">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary me-1" 
+                                                        title="Edit command">⚙️</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        title="Remove command">🗑️</button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <button type="button" class="btn btn-sm btn-outline-danger">Remove</button>
                                 </div>
-                            </div>
+                                
+                                @if (i < orderedCommands.Count - 1)
+                                {
+                                    <div class="text-center" style="margin-left: 40px;">
+                                        <div style="width: 2px; height: 20px; background-color: #0d6efd; margin: 0 auto;"></div>
+                                        <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #0d6efd; margin: 0 auto;"></div>
+                                    </div>
+                                }
+                            }
                         }
                     </div>
                 }

@@ -28,4 +28,5 @@ public class PiccoloCommand
     public string CommandName { get; set; } = string.Empty;
     public List<byte> Payload { get; set; } = new();
     public int ExecutionOrder { get; set; }
+    public string Notes { get; set; } = string.Empty;
 }

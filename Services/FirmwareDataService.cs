@@ -337,28 +337,57 @@ public class FirmwareDataService
                 Owner = "john.doe@company.com"
             },
             
-            // DFU Feature - Device Firmware Update workflow
+            // DFU Feature - Device Firmware Update workflow with state machine
             new Feature
             {
                 Id = Guid.NewGuid(),
                 Name = "Device Firmware Update (DFU)",
-                Description = "Complete firmware update workflow including package validation, parcel-based download, CRC verification, and device reboot. Supports resume after interruption and rollback to previous firmware.",
+                Description = "Complete firmware update state machine with failsafe operation, background download capability, and automatic rollback on failure. Workflow: Check Status → Prepare → Download Image Package → Validate Image → Download Script Package → Validate Script → Update Firmware → Acknowledge → Verify or Rollback. State persists across reboots. Supports pause/resume during download.",
                 Commands = new List<PiccoloCommand>
                 {
-                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x0A, CommandName = "DfuGetStatus", ExecutionOrder = 1, Payload = new List<byte> { 0x0A, 0x01 } },
-                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x0B, CommandName = "DfuGetPackageInfo", ExecutionOrder = 2, Payload = new List<byte> { 0x0B, 0x01 } },
-                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x0C, CommandName = "DfuGetCapabilities", ExecutionOrder = 3, Payload = new List<byte> { 0x0C, 0x01 } },
-                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x0D, CommandName = "DfuWriteParcel", ExecutionOrder = 4, Payload = new List<byte> { 0x0D, 0x00, 0x00, 0x40 } },
-                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x0E, CommandName = "DfuHashNvmBlock", ExecutionOrder = 5, Payload = new List<byte> { 0x0E, 0x00, 0x10 } },
-                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x0F, CommandName = "AfsCheck", ExecutionOrder = 6, Payload = new List<byte> { 0x0F, 0x01, 0x00 } },
-                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x10, CommandName = "DfuRequest", ExecutionOrder = 7, Payload = new List<byte> { 0x10, 0x02 } }
+                    // Step 1: Check current DFU state
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x06, CommandName = "DfuGetStatus", ExecutionOrder = 1, Payload = new List<byte> { 0x06, 0x0A }, Notes = "Query current DFU agent state (Ready, Downloading, Validated, Update Complete, etc.)" },
+                    
+                    // Step 2: Reset if needed and prepare for download
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x10, CommandName = "DfuRequest_Reset", ExecutionOrder = 2, Payload = new List<byte> { 0x10, 0x0A, 0x00 }, Notes = "Reset DFU agent to Ready state if currently in error or complete state" },
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x10, CommandName = "DfuRequest_Prepare", ExecutionOrder = 3, Payload = new List<byte> { 0x10, 0x0A, 0x01 }, Notes = "Prepare for download, transition from Ready → Ready To Download" },
+                    
+                    // Step 3: Download image package in parcels (background operation)
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x0B, CommandName = "DfuWriteParcel", ExecutionOrder = 4, Payload = new List<byte> { 0x0B, 0x0A, 0x00, 0x00, 0x40, 0x00 }, Notes = "Write 64-byte parcels of firmware image (loop until complete)" },
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x06, CommandName = "DfuGetStatus_CheckDownload", ExecutionOrder = 5, Payload = new List<byte> { 0x06, 0x0A }, Notes = "Check progress during download (can pause/resume)" },
+                    
+                    // Step 4: Validate downloaded image package
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x10, CommandName = "DfuRequest_ValidateImage", ExecutionOrder = 6, Payload = new List<byte> { 0x10, 0x0A, 0x03 }, Notes = "Validate image package CRC/hash, transition Downloading → Image Package Validated" },
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x06, CommandName = "DfuGetStatus_ValidationResult", ExecutionOrder = 7, Payload = new List<byte> { 0x06, 0x0A }, Notes = "Check validation result (success or failure)" },
+                    
+                    // Step 5: Download script package for parameter preservation
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x0B, CommandName = "DfuWriteParcel_Script", ExecutionOrder = 8, Payload = new List<byte> { 0x0B, 0x0A, 0x01, 0x00, 0x20, 0x00 }, Notes = "Write script package parcels for LPI parameter preservation" },
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x10, CommandName = "DfuRequest_ValidateScript", ExecutionOrder = 9, Payload = new List<byte> { 0x10, 0x0A, 0x05 }, Notes = "Validate script package" },
+                    
+                    // Step 6: Initiate firmware update (device will reboot)
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x10, CommandName = "DfuRequest_UpdateFirmware", ExecutionOrder = 10, Payload = new List<byte> { 0x10, 0x0A, 0x06 }, Notes = "Initiate update (30-90 sec switchover), device reboots to new firmware" },
+                    
+                    // Step 7: After reboot, reconnect and check status
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x06, CommandName = "DfuGetStatus_AfterReboot", ExecutionOrder = 11, Payload = new List<byte> { 0x06, 0x0A }, Notes = "Check status after reboot (Reconnecting Target → Update Complete or Update Failed)" },
+                    
+                    // Step 8: Acknowledge successful update OR initiate rollback
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x10, CommandName = "DfuRequest_AcknowledgeUpdate", ExecutionOrder = 12, Payload = new List<byte> { 0x10, 0x0A, 0x07 }, Notes = "Acknowledge successful update, finalize new firmware" },
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x10, CommandName = "DfuRequest_Rollback", ExecutionOrder = 13, Payload = new List<byte> { 0x10, 0x0A, 0x08 }, Notes = "Rollback to previous firmware if update failed (failsafe)" },
+                    
+                    // Additional utility commands
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x09, CommandName = "DfuGetPackageInfo", ExecutionOrder = 14, Payload = new List<byte> { 0x09, 0x0A }, Notes = "Get current/downloaded package metadata (version, size, type)" },
+                    new PiccoloCommand { Id = Guid.NewGuid(), CommandCode = 0x0E, CommandName = "DfuHashNvmBlock", ExecutionOrder = 15, Payload = new List<byte> { 0x0E, 0x0A, 0x00, 0x10 }, Notes = "Hash verification of downloaded blocks in NVM" }
                 },
                 Parameters = new List<ParameterValue>
                 {
-                    new ParameterValue { Id = Guid.NewGuid(), ParameterId = 1100, ParameterName = "PackageValidationMode", Value = 1, Notes = "0=None, 1=CRC, 2=SHA256" },
-                    new ParameterValue { Id = Guid.NewGuid(), ParameterId = 1101, ParameterName = "ParcelSizeBytes", Value = 64, Notes = "Parcel size for chunked download (32-256 bytes)" },
-                    new ParameterValue { Id = Guid.NewGuid(), ParameterId = 1102, ParameterName = "RebootDelayMs", Value = 500, Notes = "Delay before reboot after update" },
-                    new ParameterValue { Id = Guid.NewGuid(), ParameterId = 1103, ParameterName = "EnableRollback", Value = 1, Notes = "0=Disabled, 1=Enabled" }
+                    new ParameterValue { Id = Guid.NewGuid(), ParameterId = 1100, ParameterName = "DfuMode", Value = 0, Notes = "0=Background DFU (slow, maintains function), 1=Foreground DFU (fast, minimal function)" },
+                    new ParameterValue { Id = Guid.NewGuid(), ParameterId = 1101, ParameterName = "ParcelSizeBytes", Value = 64, Notes = "Parcel size for chunked download (16-256 bytes)" },
+                    new ParameterValue { Id = Guid.NewGuid(), ParameterId = 1102, ParameterName = "ValidationMethod", Value = 1, Notes = "0=None, 1=CRC32, 2=SHA256 hash" },
+                    new ParameterValue { Id = Guid.NewGuid(), ParameterId = 1103, ParameterName = "EnableAutoRollback", Value = 1, Notes = "0=Manual rollback only, 1=Auto rollback on boot failure" },
+                    new ParameterValue { Id = Guid.NewGuid(), ParameterId = 1104, ParameterName = "PreserveSettings", Value = 1, Notes = "0=Reset to defaults, 1=Preserve LPI parameters via script" },
+                    new ParameterValue { Id = Guid.NewGuid(), ParameterId = 1105, ParameterName = "MaxSwitchoverTimeSec", Value = 60, Notes = "Maximum downtime during firmware switchover (30-90 sec)" },
+                    new ParameterValue { Id = Guid.NewGuid(), ParameterId = 1106, ParameterName = "EnablePauseResume", Value = 1, Notes = "0=Disabled, 1=Allow pause/resume on power cycle" },
+                    new ParameterValue { Id = Guid.NewGuid(), ParameterId = 1107, ParameterName = "DeliverySource", Value = 0, Notes = "0=Mobile app, 1=Fitting software, 2=Cloud direct" }
                 },
                 CreatedAt = DateTime.Now.AddDays(-15),
                 ModifiedAt = DateTime.Now.AddDays(-3),
