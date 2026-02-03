@@ -93,24 +93,32 @@
             </div>
         </div>
 
-        <!-- LPI Parameters -->
+        <!-- Used Parameters - Data Flow View -->
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <strong>LPI Parameters (@Model.Feature.Parameters.Count)</strong>
-                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addParameterModal">
-                    + Add Parameter
+                <div>
+                    <strong>📊 Used Parameters (@Model.Feature.Parameters.Count)</strong>
+                    <small class="text-muted ms-2">Parameters referenced by this feature's workflow</small>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addParameterModal">
+                    + Add Reference
                 </button>
             </div>
             <div class="card-body">
                 @if (Model.Feature.Parameters.Any())
                 {
+                    <div class="alert alert-info mb-3">
+                        <strong>💡 Parameter Flow:</strong> These parameters are read or written by commands in the workflow below. Click a parameter to see where it's used.
+                    </div>
+                    
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table table-sm">
                             <thead>
                                 <tr>
-                                    <th style="width: 30%">Parameter</th>
-                                    <th style="width: 40%">Value</th>
-                                    <th style="width: 20%">Range</th>
+                                    <th style="width: 25%">Parameter Name</th>
+                                    <th style="width: 15%">ID</th>
+                                    <th style="width: 20%">Range / Default</th>
+                                    <th style="width: 30%">Usage in Workflow</th>
                                     <th style="width: 10%">Actions</th>
                                 </tr>
                             </thead>
@@ -121,46 +129,37 @@
                                     <tr>
                                         <td>
                                             <strong>@param.ParameterName</strong>
-                                            <div class="small text-muted">ID: @param.ParameterId</div>
                                             @if (paramDef?.IsDeprecated == true)
                                             {
                                                 <span class="badge bg-warning">⚠️ Deprecated</span>
                                             }
                                         </td>
+                                        <td><code>@param.ParameterId</code></td>
                                         <td>
-                                            <div class="row align-items-center">
-                                                <div class="col-8">
-                                                    <input type="range" 
-                                                           class="form-range" 
-                                                           min="@(paramDef?.MinValue ?? 0)" 
-                                                           max="@(paramDef?.MaxValue ?? 100)" 
-                                                           value="@param.Value"
-                                                           onchange="document.getElementById('value-@param.Id').value = this.value">
-                                                </div>
-                                                <div class="col-4">
-                                                    <input type="number" 
-                                                           id="value-@param.Id"
-                                                           class="form-control form-control-sm" 
-                                                           value="@param.Value"
-                                                           min="@(paramDef?.MinValue ?? 0)" 
-                                                           max="@(paramDef?.MaxValue ?? 100)">
-                                                </div>
+                                            <div class="small">
+                                                <strong>Range:</strong> @(paramDef?.MinValue ?? 0) - @(paramDef?.MaxValue ?? 100)
+                                            </div>
+                                            <div class="small text-muted">
+                                                Default: @(paramDef?.DefaultValue ?? 50)
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="small">
+                                                <span class="badge bg-success me-1">📖 Read</span> Step 1, Step 5
+                                                <span class="badge bg-primary me-1">✏️ Write</span> Step 3
                                             </div>
                                             @if (!string.IsNullOrEmpty(param.Notes))
                                             {
-                                                <div class="small text-muted mt-1">📝 @param.Notes</div>
+                                                <div class="small text-muted mt-1">@param.Notes</div>
                                             }
                                         </td>
                                         <td>
-                                            <span class="badge bg-secondary">@(paramDef?.MinValue ?? 0) - @(paramDef?.MaxValue ?? 100)</span>
-                                            <div class="small text-muted">Default: @(paramDef?.DefaultValue ?? 50)</div>
-                                        </td>
-                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary me-1" title="View usage">👁️</button>
                                             <form method="post" asp-page-handler="RemoveParameter" style="display:inline">
                                                 <input type="hidden" name="id" value="@Model.Feature.Id" />
                                                 <input type="hidden" name="parameterId" value="@param.Id" />
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" 
-                                                        onclick="return confirm('Remove this parameter?')">
+                                                        onclick="return confirm('Remove this parameter reference?')">
                                                     🗑️
                                                 </button>
                                             </form>
@@ -174,114 +173,390 @@
                 else
                 {
                     <div class="text-center py-4">
-                        <p class="text-muted">No parameters configured yet</p>
-                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addParameterModal">
-                            + Add First Parameter
-                        </button>
+                        <p class="text-muted">No parameters referenced by this feature's workflow</p>
+                        <p class="small text-muted">Add parameter references as you build the command workflow below</p>
                     </div>
                 }
             </div>
         </div>
 
-        <!-- PICCOLO Commands -->
+        <!-- PICCOLO Commands - Workflow with Atomic Operations -->
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <strong>PICCOLO Commands - State Machine Flow (@Model.Feature.Commands.Count)</strong>
-                <button type="button" class="btn btn-sm btn-success" disabled>
-                    + Add Command
-                </button>
+                <div>
+                    <strong>⚙️ Workflow - Command Execution (@Model.Feature.Commands.Count commands)</strong>
+                    <small class="text-muted ms-2">Organized into atomic operations</small>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="collapseAllOperations()">
+                        📋 Collapse All
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="expandAllOperations()">
+                        📂 Expand All
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-success me-2" onclick="showAddOperationModal()">
+                        + Add Operation Group
+                    </button>
+                    <button type="button" class="btn btn-sm btn-success" onclick="showAddStepModal(1, null)">
+                        + Add Single Command
+                    </button>
+                </div>
             </div>
             <div class="card-body">
                 @if (Model.Feature.Commands.Any())
                 {
                     <div class="alert alert-info mb-3">
-                        <strong>💡 Command Execution Flow:</strong> Commands execute sequentially. Use status checks to determine next steps. Click a command to view/edit branching logic.
+                        <strong>💡 Workflow Execution:</strong> Commands are grouped into atomic operations sent to the device as single transactions. Click operation headers to collapse/expand. Use PICCOLO Multi-command for grouped operations.
                     </div>
                     
                     <div class="command-flow">
                         @{
                             var orderedCommands = Model.Feature.Commands.OrderBy(c => c.ExecutionOrder).ToList();
-                            for (int i = 0; i < orderedCommands.Count; i++)
+                            
+                            // Simulate command grouping (in real app, this would come from data model)
+                            var commandGroups = new[]
                             {
-                                var cmd = orderedCommands[i];
-                                var isStatusCheck = cmd.CommandName.Contains("GetStatus") || cmd.CommandName.Contains("Check");
-                                var isDecisionPoint = isStatusCheck && i < orderedCommands.Count - 1;
+                                new { Name = "Status Check & Prepare", Commands = orderedCommands.Take(3).ToList(), Type = "Sequential", IsMultiCommand = false },
+                                new { Name = "Background Download", Commands = orderedCommands.Skip(3).Take(2).ToList(), Type = "Multi-Command", IsMultiCommand = true },
+                                new { Name = "Validation", Commands = orderedCommands.Skip(5).Take(2).ToList(), Type = "Sequential", IsMultiCommand = false },
+                                new { Name = "Script Download & Validate", Commands = orderedCommands.Skip(7).Take(2).ToList(), Type = "Multi-Command", IsMultiCommand = true },
+                                new { Name = "Update & Reboot", Commands = orderedCommands.Skip(9).Take(2).ToList(), Type = "Atomic", IsMultiCommand = false },
+                                new { Name = "Rollback Handler", Commands = orderedCommands.Skip(11).ToList(), Type = "Rollback", IsMultiCommand = false }
+                            };
+                            
+                            var groupNum = 1;
+                            foreach (var group in commandGroups.Where(g => g.Commands.Any()))
+                            {
+                                var groupColor = group.IsMultiCommand ? "primary" : (group.Type == "Rollback" ? "warning" : "secondary");
+                                var groupIcon = group.IsMultiCommand ? "📦" : (group.Type == "Rollback" ? "⚠️" : "🔗");
+                                var stepCount = group.Commands.Count;
+                                var estTime = group.Commands.Count * 50; // Simulated estimate
                                 
-                                <div class="card mb-2 @(isStatusCheck ? "border-warning" : "border-primary")" style="margin-left: 20px;">
-                                    <div class="card-body py-2">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <div class="flex-grow-1">
-                                                <div class="d-flex align-items-center mb-1">
-                                                    <span class="badge @(isStatusCheck ? "bg-warning" : "bg-primary") me-2">
-                                                        Step @cmd.ExecutionOrder
-                                                    </span>
-                                                    <strong class="me-2">@cmd.CommandName</strong>
-                                                    <code class="small">@string.Format("0x{0:X2}", cmd.CommandCode)</code>
-                                                    @if (isStatusCheck)
-                                                    {
-                                                        <span class="badge bg-info ms-2">🔍 Status Check</span>
-                                                    }
+                                <div class="card mb-3 border-@groupColor">
+                                    <!-- Collapsible Operation Header -->
+                                    <div class="card-header bg-@groupColor bg-opacity-10" 
+                                         id="operation-header-@groupNum"
+                                         style="cursor: pointer;"
+                                         onclick="toggleOperation(@groupNum)">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="d-flex align-items-center">
+                                                <span class="expand-icon me-2 fw-bold">▼</span>
+                                                <strong>@groupIcon Operation @groupNum: @group.Name</strong>
+                                                @if (group.IsMultiCommand)
+                                                {
+                                                    <span class="badge bg-primary ms-2">PICCOLO Multi-Command</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary ms-2">@group.Type</span>
+                                                }
+                                                <span class="badge bg-light text-dark ms-1">@stepCount step(s)</span>
+                                                <span class="badge bg-light text-dark ms-1">~@(estTime)ms</span>
+                                                <span class="badge bg-success ms-1">✓ Valid</span>
+                                            </div>
+                                            <div onclick="event.stopPropagation();">
+                                                <!-- Operation Type Toggle -->
+                                                <div class="btn-group btn-group-sm me-2">
+                                                    <button type="button" class="btn @(group.IsMultiCommand ? "btn-outline-secondary" : "btn-secondary")" 
+                                                            title="Sequential: Execute steps one at a time"
+                                                            onclick="switchOperationType(@groupNum, 'sequential')">
+                                                        Sequential
+                                                    </button>
+                                                    <button type="button" class="btn @(group.IsMultiCommand ? "btn-primary" : "btn-outline-primary")" 
+                                                            title="Multi-Command: Batch all steps"
+                                                            onclick="switchOperationType(@groupNum, 'multi-command')">
+                                                        Multi-Cmd
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-info" 
+                                                            title="Loop: Repeat steps until condition"
+                                                            onclick="switchOperationType(@groupNum, 'loop')">
+                                                        Loop
+                                                    </button>
                                                 </div>
-                                                
-                                                @if (!string.IsNullOrEmpty(cmd.Notes))
-                                                {
-                                                    <div class="small text-muted mb-1">
-                                                        📝 @cmd.Notes
-                                                    </div>
-                                                }
-                                                
-                                                @if (cmd.Payload.Any())
-                                                {
-                                                    <div class="small">
-                                                        <strong>Payload:</strong> 
-                                                        <code>[@string.Join(", ", cmd.Payload.Select(b => $"0x{b:X2}"))]</code>
-                                                    </div>
-                                                }
-                                                
-                                                @if (isDecisionPoint)
-                                                {
-                                                    <div class="mt-2 p-2 bg-light rounded">
-                                                        <strong class="small">Decision Point:</strong>
-                                                        <div class="small mt-1">
-                                                            <div class="form-check form-check-inline">
-                                                                <input class="form-check-input" type="radio" name="branch-@cmd.Id" id="success-@cmd.Id" checked>
-                                                                <label class="form-check-label text-success" for="success-@cmd.Id">
-                                                                    ✓ Success → Continue to Step @(cmd.ExecutionOrder + 1)
-                                                                </label>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary me-1">⚙️</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger">🗑️</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Collapsible Operation Content -->
+                                    <div class="card-body p-2" id="operation-content-@groupNum">
+                                        @for (int i = 0; i < group.Commands.Count; i++)
+                                        {
+                                            var cmd = group.Commands[i];
+                                            var isStatusCheck = cmd.CommandName.Contains("GetStatus") || cmd.CommandName.Contains("Check");
+                                            var isDecisionPoint = isStatusCheck && i < group.Commands.Count - 1;
+                                            
+                                            <div class="card mb-2 @(isStatusCheck ? "border-warning" : "")" style="margin-left: 10px;">
+                                                <div class="card-body py-2 px-3">
+                                                    <div class="d-flex justify-content-between align-items-start">
+                                                        <div class="flex-grow-1">
+                                                            <div class="d-flex align-items-center mb-1">
+                                                                <span class="badge @(isStatusCheck ? "bg-warning" : "bg-dark") me-2">
+                                                                    Step @cmd.ExecutionOrder
+                                                                </span>
+                                                                <strong class="me-2">@cmd.CommandName</strong>
+                                                                <code class="small">@string.Format("0x{0:X2}", cmd.CommandCode)</code>
+                                                                @if (isStatusCheck)
+                                                                {
+                                                                    <span class="badge bg-info ms-2">🔍 Status Check</span>
+                                                                }
                                                             </div>
-                                                            <div class="form-check form-check-inline">
-                                                                <input class="form-check-input" type="radio" name="branch-@cmd.Id" id="failure-@cmd.Id">
-                                                                <label class="form-check-label text-danger" for="failure-@cmd.Id">
-                                                                    ✗ Failure → 
-                                                                    <select class="form-select form-select-sm d-inline-block" style="width: auto;">
-                                                                        <option>Reset & Retry</option>
-                                                                        <option>Skip to Rollback</option>
-                                                                        <option>Abort Process</option>
-                                                                        <option>Log Error & Continue</option>
-                                                                    </select>
-                                                                </label>
-                                                            </div>
+                                                            
+                                                            @if (!string.IsNullOrEmpty(cmd.Notes))
+                                                            {
+                                                                <div class="small text-muted mb-2">
+                                                                    📝 @cmd.Notes
+                                                                </div>
+                                                            }
+                                                            
+                                                            <!-- Parameter References - Only show if this command uses parameters -->
+                                                            @{
+                                                                // In real implementation, this would come from command metadata
+                                                                // For now, showing examples only where relevant
+                                                                var hasParamUsage = false;
+                                                                List<string> paramReads = new List<string>();
+                                                                List<string> paramWrites = new List<string>();
+                                                                
+                                                                // Example: Step 1 reads configuration parameters
+                                                                if (cmd.ExecutionOrder == 1)
+                                                                {
+                                                                    hasParamUsage = true;
+                                                                    paramReads.Add("DfuMode");
+                                                                    paramReads.Add("EnablePauseResume");
+                                                                }
+                                                                // Example: Step 3 writes configuration
+                                                                else if (cmd.ExecutionOrder == 3)
+                                                                {
+                                                                    hasParamUsage = true;
+                                                                    paramWrites.Add("ParcelSizeBytes = 64");
+                                                                }
+                                                                // Example: Step 10 reads and writes
+                                                                else if (cmd.ExecutionOrder == 10)
+                                                                {
+                                                                    hasParamUsage = true;
+                                                                    paramReads.Add("MaxSwitchoverTimeSec");
+                                                                    paramWrites.Add("ValidationMethod = 1");
+                                                                }
+                                                            }
+                                                            
+                                                            @if (hasParamUsage)
+                                                            {
+                                                                <div class="mb-2 p-2 bg-light rounded border">
+                                                                    <div class="small d-flex align-items-center justify-content-between">
+                                                                        <div>
+                                                                            <strong>Parameter Usage:</strong>
+                                                                        </div>
+                                                                        <div>
+                                                                            @if (paramReads.Any())
+                                                                            {
+                                                                                <span class="badge bg-success me-1" style="cursor: pointer;" 
+                                                                                      onclick="toggleParameterSection(@cmd.ExecutionOrder, 'read')">
+                                                                                    📖 Read<span class="collapse-indicator"></span>
+                                                                                </span>
+                                                                            }
+                                                                            @if (paramWrites.Any())
+                                                                            {
+                                                                                <span class="badge bg-primary me-1" style="cursor: pointer;" 
+                                                                                      onclick="toggleParameterSection(@cmd.ExecutionOrder, 'write')">
+                                                                                    ✏️ Write<span class="collapse-indicator"></span>
+                                                                                </span>
+                                                                            }
+                                                                            <button type="button" class="btn btn-outline-success btn-sm" 
+                                                                                    style="padding: 1px 6px; font-size: 11px;" 
+                                                                                    onclick="showParameterLinkDialog(@cmd.ExecutionOrder, 'Read')">
+                                                                                + Read
+                                                                            </button>
+                                                                            <button type="button" class="btn btn-outline-primary btn-sm" 
+                                                                                    style="padding: 1px 6px; font-size: 11px;"
+                                                                                    onclick="showParameterLinkDialog(@cmd.ExecutionOrder, 'Write')">
+                                                                                + Write
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                    @if (paramReads.Any())
+                                                                    {
+                                                                        <div id="param-read-@cmd.ExecutionOrder" class="small mt-1">
+                                                                            @foreach (var param in paramReads)
+                                                                            {
+                                                                                <span class="badge bg-success bg-opacity-25 text-dark me-1 mb-1">
+                                                                                    📖 @param
+                                                                                    <button type="button" class="btn-close btn-sm ms-1" style="font-size: 8px; padding: 2px;" title="Remove"></button>
+                                                                                </span>
+                                                                            }
+                                                                        </div>
+                                                                    }
+                                                                    @if (paramWrites.Any())
+                                                                    {
+                                                                        <div id="param-write-@cmd.ExecutionOrder" class="small mt-1">
+                                                                            @foreach (var param in paramWrites)
+                                                                            {
+                                                                                <span class="badge bg-primary bg-opacity-25 text-dark me-1 mb-1">
+                                                                                    ✏️ @param
+                                                                                    <button type="button" class="btn-close btn-sm ms-1" style="font-size: 8px; padding: 2px;" title="Remove"></button>
+                                                                                </span>
+                                                                            }
+                                                                        </div>
+                                                                    }
+                                                                </div>
+                                                            }
+                                                            else
+                                                            {
+                                                                <!-- Show add parameter button only when no parameters linked -->
+                                                                <div class="mb-2">
+                                                                    <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                                                            style="padding: 2px 8px; font-size: 11px;" 
+                                                                            onclick="showParameterLinkDialog(@cmd.ExecutionOrder, 'Read')">
+                                                                        + Link Parameter
+                                                                    </button>
+                                                                </div>
+                                                            }
+                                                            
+                                                            @if (cmd.Payload.Any())
+                                                            {
+                                                                <div class="small mb-2">
+                                                                    <strong>Payload:</strong> 
+                                                                    <code>[@string.Join(", ", cmd.Payload.Select(b => $"0x{b:X2}"))]</code>
+                                                                </div>
+                                                            }
+                                                            
+                                                            @if (isDecisionPoint)
+                                                            {
+                                                                <div class="mt-2 p-2 bg-light rounded border decision-point-container">
+                                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                        <strong class="small">🔀 Decision Point</strong>
+                                                                        <button type="button" class="btn btn-outline-secondary btn-sm" style="font-size: 10px; padding: 2px 6px;" 
+                                                                                onclick="toggleDecisionPointDetails(@cmd.ExecutionOrder)">
+                                                                            <span id="toggle-icon-@cmd.ExecutionOrder">▼</span> Details
+                                                                        </button>
+                                                                    </div>
+                                                                    
+                                                                    <!-- Compact view (always visible) -->
+                                                                    <div class="small">
+                                                                        <div class="row g-2">
+                                                                            <div class="col-md-6">
+                                                                                <div class="d-flex align-items-center">
+                                                                                    <span class="text-success me-2">✓ Success:</span>
+                                                                                    <select class="form-select form-select-sm" style="font-size: 11px;" id="success-action-@cmd.ExecutionOrder"
+                                                                                            onchange="updateDecisionPointAction(@cmd.ExecutionOrder, 'success', this.value)">
+                                                                                        <option value="continue" selected>Continue to Step @(cmd.ExecutionOrder + 1)</option>
+                                                                                        <option value="skip-step">Skip to Step...</option>
+                                                                                        <option value="skip-operation">Skip to Operation...</option>
+                                                                                        <option value="complete-operation">Complete Operation</option>
+                                                                                        <option value="complete-workflow">Complete Workflow (Success)</option>
+                                                                                    </select>
+                                                                                </div>
+                                                                                <!-- Step/Operation selector (shown when skip option selected) -->
+                                                                                <div id="success-target-@cmd.ExecutionOrder" class="mt-1" style="display: none;">
+                                                                                    <select class="form-select form-select-sm" style="font-size: 11px;">
+                                                                                        <option>Step 2: Verify Connection</option>
+                                                                                        <option>Step 3: Configure Radio</option>
+                                                                                        <option>Step 4: Validate</option>
+                                                                                        <option>Operation 2: Radio Detection Loop</option>
+                                                                                        <option>Operation 3: Configure & Verify</option>
+                                                                                    </select>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="col-md-6">
+                                                                                <div class="d-flex align-items-center">
+                                                                                    <span class="text-danger me-2">✗ Failure:</span>
+                                                                                    <select class="form-select form-select-sm" style="font-size: 11px;" id="failure-action-@cmd.ExecutionOrder"
+                                                                                            onchange="updateDecisionPointAction(@cmd.ExecutionOrder, 'failure', this.value)">
+                                                                                        <option value="retry">Retry This Step (max 3)</option>
+                                                                                        <option value="skip-step">Skip to Step...</option>
+                                                                                        <option value="skip-rollback" selected>Skip to Rollback</option>
+                                                                                        <option value="fail-operation">Fail Operation</option>
+                                                                                        <option value="fail-workflow">Fail Workflow</option>
+                                                                                    </select>
+                                                                                </div>
+                                                                                <!-- Target selector (shown when skip/rollback option selected) -->
+                                                                                <div id="failure-target-@cmd.ExecutionOrder" class="mt-1">
+                                                                                    <select class="form-select form-select-sm" style="font-size: 11px;">
+                                                                                        <option>Step 13: Rollback Handler</option>
+                                                                                        <option>Step 2: Reset & Retry</option>
+                                                                                        <option>Operation 5: Rollback Handler</option>
+                                                                                    </select>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <!-- Expanded details (hidden by default) -->
+                                                                    <div id="decision-details-@cmd.ExecutionOrder" class="mt-2 pt-2 border-top" style="display: none;">
+                                                                        <div class="row g-2 small">
+                                                                            <div class="col-md-6">
+                                                                                <label class="form-label mb-1" style="font-size: 11px;">Retry Configuration:</label>
+                                                                                <div class="input-group input-group-sm">
+                                                                                    <span class="input-group-text" style="font-size: 10px;">Max Retries</span>
+                                                                                    <input type="number" class="form-control" value="3" min="1" max="10" style="font-size: 11px;">
+                                                                                </div>
+                                                                                <div class="input-group input-group-sm mt-1">
+                                                                                    <span class="input-group-text" style="font-size: 10px;">Delay (ms)</span>
+                                                                                    <input type="number" class="form-control" value="500" min="0" max="10000" style="font-size: 11px;">
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="col-md-6">
+                                                                                <label class="form-label mb-1" style="font-size: 11px;">Error Handling:</label>
+                                                                                <select class="form-select form-select-sm" style="font-size: 11px;">
+                                                                                    <option>ErrorCode.COMMAND_FAILED</option>
+                                                                                    <option>ErrorCode.TIMEOUT</option>
+                                                                                    <option>ErrorCode.DEVICE_ERROR</option>
+                                                                                    <option>Custom Error Code...</option>
+                                                                                </select>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                        <div class="ms-2">
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Edit">⚙️</button>
+                                                            <button type="button" class="btn btn-sm btn-outline-danger" title="Remove">🗑️</button>
                                                         </div>
                                                     </div>
-                                                }
+                                                </div>
                                             </div>
-                                            <div class="ms-2">
-                                                <button type="button" class="btn btn-sm btn-outline-secondary me-1" 
-                                                        title="Edit command">⚙️</button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                        title="Remove command">🗑️</button>
-                                            </div>
+                                            
+                                            @if (i < group.Commands.Count - 1)
+                                            {
+                                                <!-- Add Step Here button between steps -->
+                                                <div class="text-center my-2" style="margin-left: 30px;">
+                                                    <div style="width: 2px; height: 8px; background-color: #6c757d; margin: 0 auto;"></div>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" style="font-size: 10px; padding: 2px 8px; border-style: dashed;"
+                                                            onclick="showAddStepModal(@groupNum, @cmd.ExecutionOrder)">
+                                                        ➕ Add Step
+                                                    </button>
+                                                    <div style="width: 2px; height: 8px; background-color: #6c757d; margin: 0 auto;"></div>
+                                                    <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #6c757d; margin: 0 auto;"></div>
+                                                </div>
+                                            }
+                                        }
+                                        
+                                        <!-- Add Step at end of operation -->
+                                        <div class="text-center mt-2 pt-2 border-top">
+                                            <button type="button" class="btn btn-sm btn-outline-success" style="font-size: 11px;"
+                                                    onclick="showAddStepModal(@groupNum, null)">
+                                                ➕ Add Step to This Operation
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
                                 
-                                @if (i < orderedCommands.Count - 1)
+                                @if (group != commandGroups.Last(g => g.Commands.Any()))
                                 {
-                                    <div class="text-center" style="margin-left: 40px;">
-                                        <div style="width: 2px; height: 20px; background-color: #0d6efd; margin: 0 auto;"></div>
-                                        <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #0d6efd; margin: 0 auto;"></div>
+                                    <!-- Add Operation Here button between operations -->
+                                    <div class="text-center mb-3">
+                                        <div style="width: 3px; height: 10px; background-color: #0d6efd; margin: 0 auto;"></div>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" style="font-size: 10px; padding: 3px 12px; border-style: dashed;"
+                                                onclick="showAddOperationModal(@groupNum)">
+                                            ➕ Add Operation Here
+                                        </button>
+                                        <div style="width: 3px; height: 10px; background-color: #0d6efd; margin: 0 auto;"></div>
+                                        <div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 10px solid #0d6efd; margin: 0 auto;"></div>
                                     </div>
                                 }
+                                
+                                groupNum++;
                             }
                         }
                     </div>
@@ -289,7 +564,8 @@
                 else
                 {
                     <div class="text-center py-4">
-                        <p class="text-muted">No commands configured</p>
+                        <p class="text-muted">No workflow commands defined</p>
+                        <p class="small text-muted">Build your feature workflow by adding command operations</p>
                     </div>
                 }
             </div>
@@ -331,6 +607,38 @@
             </div>
         </div>
     }
+</div>
+
+<!-- Link Parameter Modal -->
+<div class="modal fade" id="linkParameterModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🔗 Link Parameter to Command Step</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <strong>💡 Parameter Linking:</strong> Navigate through Context → Parameter Group → Parameter to find the parameter you need. 
+                    Parameters are strongly-typed (string, bool, uint8, etc.) and map directly to device memory.
+                </div>
+                
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="parameterHierarchySearch" placeholder="🔍 Type to search parameters, groups, or contexts...">
+                </div>
+                
+                <div id="parameterHierarchy" style="max-height: 500px; overflow-y: auto;">
+                    <!-- Populated dynamically by JavaScript -->
+                </div>
+                
+                <input type="hidden" id="linkMode" />
+                <input type="hidden" id="linkStepId" />
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Add Parameter Modal -->
@@ -389,6 +697,452 @@
     </div>
 </div>
 
+<!-- Add Operation Modal -->
+<div class="modal fade" id="addOperationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">➕ Add New Operation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Operation Name</label>
+                    <input type="text" class="form-control" id="newOperationName" placeholder="e.g., Device Configuration">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Select Operation Type</label>
+                    <div class="row g-3">
+                        <!-- Sequential -->
+                        <div class="col-md-4">
+                            <div class="card h-100 operation-type-card" data-type="sequential" onclick="selectOperationType('sequential')">
+                                <div class="card-body text-center">
+                                    <div class="fs-1 mb-2">🔗</div>
+                                    <h5 class="card-title">Sequential</h5>
+                                    <p class="card-text small text-muted">
+                                        Execute steps one at a time, waiting for each to complete. 
+                                        Supports decision points between steps.
+                                    </p>
+                                    <ul class="list-unstyled small text-start mt-2">
+                                        <li>✓ Per-step decision points</li>
+                                        <li>✓ Individual timeouts</li>
+                                        <li>✓ Conditional branching</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Multi-Command -->
+                        <div class="col-md-4">
+                            <div class="card h-100 operation-type-card" data-type="multi-command" onclick="selectOperationType('multi-command')">
+                                <div class="card-body text-center">
+                                    <div class="fs-1 mb-2">📦</div>
+                                    <h5 class="card-title">Multi-Command</h5>
+                                    <p class="card-text small text-muted">
+                                        Batch all steps into a single PICCOLO transmission. 
+                                        Faster execution, atomic delivery.
+                                    </p>
+                                    <ul class="list-unstyled small text-start mt-2">
+                                        <li>⚡ Single transmission</li>
+                                        <li>✓ Aggregated payload</li>
+                                        <li>✓ Atomic execution</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Loop -->
+                        <div class="col-md-4">
+                            <div class="card h-100 operation-type-card" data-type="loop" onclick="selectOperationType('loop')">
+                                <div class="card-body text-center">
+                                    <div class="fs-1 mb-2">🔄</div>
+                                    <h5 class="card-title">Loop</h5>
+                                    <p class="card-text small text-muted">
+                                        Repeat steps until a condition is met. 
+                                        Supports counters, timers, and response checks.
+                                    </p>
+                                    <ul class="list-unstyled small text-start mt-2">
+                                        <li>✓ Exit conditions</li>
+                                        <li>✓ Iteration/time limits</li>
+                                        <li>✓ Parameter/response checks</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Loop Configuration (shown when Loop is selected) -->
+                <div id="loopConfiguration" class="mt-4" style="display: none;">
+                    <hr>
+                    <h6 class="mb-3">🔄 Loop Configuration</h6>
+                    
+                    <!-- Loop Variables -->
+                    <div class="card mb-3">
+                        <div class="card-header py-2">
+                            <strong>Loop Variables</strong>
+                            <button type="button" class="btn btn-sm btn-outline-primary float-end" onclick="addLoopVariable()">+ Add Variable</button>
+                        </div>
+                        <div class="card-body" id="loopVariablesContainer">
+                            <div class="row g-2 mb-2 loop-variable-row">
+                                <div class="col-md-4">
+                                    <input type="text" class="form-control form-control-sm" placeholder="Variable Name" value="iterationCount">
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select form-select-sm">
+                                        <option selected>Counter (auto-increment)</option>
+                                        <option>Timer (elapsed ms)</option>
+                                        <option>Custom Value</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="number" class="form-control form-control-sm" placeholder="Initial Value" value="0">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button" class="btn btn-sm btn-outline-danger w-100">🗑️</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Exit Conditions -->
+                    <div class="card mb-3">
+                        <div class="card-header py-2">
+                            <strong>Exit Conditions</strong>
+                            <small class="text-muted ms-2">Loop exits when conditions are met</small>
+                        </div>
+                        <div class="card-body">
+                            <div id="exitConditionsContainer">
+                                <!-- Condition Group -->
+                                <div class="condition-group mb-3 p-2 border rounded">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="badge bg-info">Condition Group 1</span>
+                                        <button type="button" class="btn btn-sm btn-outline-danger">Remove Group</button>
+                                    </div>
+                                    
+                                    <!-- Individual Conditions -->
+                                    <div class="condition-row mb-2">
+                                        <div class="row g-2 align-items-center">
+                                            <div class="col-md-3">
+                                                <select class="form-select form-select-sm" onchange="updateConditionSource(this)">
+                                                    <option value="variable">Variable</option>
+                                                    <option value="parameter">Parameter Read</option>
+                                                    <option value="response">Command Response</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <select class="form-select form-select-sm condition-source-select">
+                                                    <option>iterationCount</option>
+                                                    <option>elapsedTime</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <select class="form-select form-select-sm">
+                                                    <option>==</option>
+                                                    <option>!=</option>
+                                                    <option>&gt;</option>
+                                                    <option>&gt;=</option>
+                                                    <option>&lt;</option>
+                                                    <option>&lt;=</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <input type="text" class="form-control form-control-sm" placeholder="Value" value="10">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <button type="button" class="btn btn-sm btn-outline-danger">🗑️</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addConditionToGroup(this, 'AND')">+ AND</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addConditionToGroup(this, 'OR')">+ OR</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addConditionGroup()">+ Add Condition Group (OR)</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Loop Limits -->
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Max Iterations (safety limit)</label>
+                            <input type="number" class="form-control" value="100" min="1">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Max Duration (ms)</label>
+                            <input type="number" class="form-control" value="30000" min="100">
+                        </div>
+                    </div>
+                    
+                    <!-- On Timeout Behavior -->
+                    <div class="mt-3">
+                        <label class="form-label">On Limit Reached</label>
+                        <select class="form-select">
+                            <option>Fail Operation with Error</option>
+                            <option>Continue to Next Operation</option>
+                            <option>Skip to Rollback</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="selectedOperationType" value="">
+                <input type="hidden" id="insertAfterOperation" value="">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createOperation()" id="createOperationBtn" disabled>Create Operation</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Step Modal -->
+<div class="modal fade" id="addStepModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">➕ Add New Step</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Select Step Type</label>
+                </div>
+                
+                <!-- Step Type Categories -->
+                <div class="accordion" id="stepTypesAccordion">
+                    <!-- Command Execution -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#commandSteps">
+                                <span class="me-2">⚡</span> Command Execution
+                            </button>
+                        </h2>
+                        <div id="commandSteps" class="accordion-collapse collapse show" data-bs-parent="#stepTypesAccordion">
+                            <div class="accordion-body">
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('piccolo-command')">
+                                            <div class="card-body py-2">
+                                                <strong>📡 PICCOLO Command</strong>
+                                                <div class="small text-muted">Execute a firmware command with payload</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('command-with-response')">
+                                            <div class="card-body py-2">
+                                                <strong>📨 Command with Response Check</strong>
+                                                <div class="small text-muted">Execute command and validate response</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Parameter Operations -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#parameterSteps">
+                                <span class="me-2">📊</span> Parameter Operations
+                            </button>
+                        </h2>
+                        <div id="parameterSteps" class="accordion-collapse collapse" data-bs-parent="#stepTypesAccordion">
+                            <div class="accordion-body">
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('param-read')">
+                                            <div class="card-body py-2">
+                                                <strong>📖 Read Parameter</strong>
+                                                <div class="small text-muted">Read parameter value into a variable</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('param-write')">
+                                            <div class="card-body py-2">
+                                                <strong>✏️ Write Parameter</strong>
+                                                <div class="small text-muted">Write value to a parameter</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('param-compare')">
+                                            <div class="card-body py-2">
+                                                <strong>🔍 Compare Parameter</strong>
+                                                <div class="small text-muted">Read and compare against expected value</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Math & Logic Operations -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mathSteps">
+                                <span class="me-2">🧮</span> Math & Logic Operations
+                            </button>
+                        </h2>
+                        <div id="mathSteps" class="accordion-collapse collapse" data-bs-parent="#stepTypesAccordion">
+                            <div class="accordion-body">
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('math-calc')">
+                                            <div class="card-body py-2">
+                                                <strong>➕ Calculate</strong>
+                                                <div class="small text-muted">Perform arithmetic (add, subtract, multiply, etc.)</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('math-bitwise')">
+                                            <div class="card-body py-2">
+                                                <strong>🔢 Bitwise Operation</strong>
+                                                <div class="small text-muted">AND, OR, XOR, shift operations</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('set-variable')">
+                                            <div class="card-body py-2">
+                                                <strong>📝 Set Variable</strong>
+                                                <div class="small text-muted">Assign value to a workflow variable</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Flow Control -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flowSteps">
+                                <span class="me-2">🔀</span> Flow Control
+                            </button>
+                        </h2>
+                        <div id="flowSteps" class="accordion-collapse collapse" data-bs-parent="#stepTypesAccordion">
+                            <div class="accordion-body">
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('conditional')">
+                                            <div class="card-body py-2">
+                                                <strong>◆ Conditional Branch</strong>
+                                                <div class="small text-muted">If/else logic based on conditions</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('delay')">
+                                            <div class="card-body py-2">
+                                                <strong>⏱️ Delay</strong>
+                                                <div class="small text-muted">Wait for specified duration</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('break-loop')">
+                                            <div class="card-body py-2">
+                                                <strong>⛔ Break Loop</strong>
+                                                <div class="small text-muted">Exit the current loop operation</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('goto-step')">
+                                            <div class="card-body py-2">
+                                                <strong>↪️ Go To Step</strong>
+                                                <div class="small text-muted">Jump to a specific step</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Status & Validation -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#statusSteps">
+                                <span class="me-2">✅</span> Status & Validation
+                            </button>
+                        </h2>
+                        <div id="statusSteps" class="accordion-collapse collapse" data-bs-parent="#stepTypesAccordion">
+                            <div class="accordion-body">
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('status-check')">
+                                            <div class="card-body py-2">
+                                                <strong>🔍 Status Check</strong>
+                                                <div class="small text-muted">Query device status and store result</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('assert')">
+                                            <div class="card-body py-2">
+                                                <strong>⚠️ Assert</strong>
+                                                <div class="small text-muted">Fail if condition is not met</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card step-type-card" onclick="selectStepType('log')">
+                                            <div class="card-body py-2">
+                                                <strong>📋 Log Message</strong>
+                                                <div class="small text-muted">Record debug/info message</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="selectedStepType" value="">
+                <input type="hidden" id="insertInOperation" value="">
+                <input type="hidden" id="insertAfterStep" value="">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createStep()" id="createStepBtn" disabled>Configure Step →</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Step Configuration Modal (shown after selecting step type) -->
+<div class="modal fade" id="configureStepModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="configureStepTitle">Configure Step</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="configureStepBody">
+                <!-- Dynamically populated based on step type -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveStep()">Add Step</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         // Simple parameter search
@@ -400,5 +1154,950 @@
                 item.style.display = text.includes(search) ? '' : 'none';
             });
         });
+        
+        // Parameter Read/Write Toggle functionality
+        function toggleParameterSection(stepId, type) {
+            const section = document.getElementById(`param-${type}-${stepId}`);
+            const button = event.target.closest('span');
+            
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                button.classList.remove('collapsed');
+                button.querySelector('.collapse-indicator').textContent = '';
+            } else {
+                section.style.display = 'none';
+                button.classList.add('collapsed');
+                const count = section.querySelectorAll('.badge').length;
+                button.querySelector('.collapse-indicator').textContent = ` (${count})`;
+            }
+        }
+        
+        // Mock parameter data structure (in real app, this would come from server/XML parsing)
+        const parameterHierarchy = [
+            {
+                context: "DFU Configuration",
+                groups: [
+                    {
+                        name: "Update Control",
+                        parameters: [
+                            { name: "DfuMode", type: "uint8", description: "0=Background, 1=Foreground" },
+                            { name: "EnablePauseResume", type: "bool", description: "Allow pause/resume on power cycle" },
+                            { name: "EnableAutoRollback", type: "bool", description: "Auto rollback on boot failure" }
+                        ]
+                    },
+                    {
+                        name: "Download Settings",
+                        parameters: [
+                            { name: "ParcelSizeBytes", type: "uint16", description: "Chunk size for firmware download (16-256)" },
+                            { name: "ValidationMethod", type: "uint8", description: "0=None, 1=CRC32, 2=SHA256" },
+                            { name: "MaxSwitchoverTimeSec", type: "uint16", description: "Maximum firmware switchover downtime (30-90 sec)" }
+                        ]
+                    },
+                    {
+                        name: "Parameter Preservation",
+                        parameters: [
+                            { name: "PreserveSettings", type: "bool", description: "Preserve LPI parameters via script" },
+                            { name: "DeliverySource", type: "uint8", description: "0=Mobile app, 1=Fitting software, 2=Cloud" }
+                        ]
+                    }
+                ]
+            },
+            {
+                context: "Directionality",
+                groups: [
+                    {
+                        name: "Spatial Processing",
+                        parameters: [
+                            { name: "DirectionalityMode", type: "uint8", description: "0=Off, 1=Fixed, 2=Adaptive, 3=Ultra" },
+                            { name: "DirectionalityStrength", type: "uint8", description: "Beam narrowness 0-100" },
+                            { name: "SpatialAwarenessLevel", type: "uint8", description: "Environmental awareness preservation" }
+                        ]
+                    },
+                    {
+                        name: "Adaptive Switching",
+                        parameters: [
+                            { name: "SwitchingThresholdDb", type: "int16", description: "SNR threshold for adaptive switching" },
+                            { name: "AdaptationSpeed", type: "uint8", description: "Speed of directional adaptation (0=slow, 100=fast)" }
+                        ]
+                    }
+                ]
+            },
+            {
+                context: "Noise Reduction",
+                groups: [
+                    {
+                        name: "Spectral Control",
+                        parameters: [
+                            { name: "NoiseReductionStrength", type: "uint8", description: "Overall NR aggressiveness 0-100" },
+                            { name: "SpeechPreservation", type: "uint8", description: "Speech protection level" },
+                            { name: "ModulationDetectionThreshold", type: "uint8", description: "Threshold for speech vs noise classification" }
+                        ]
+                    },
+                    {
+                        name: "Multi-Band Gains",
+                        parameters: [
+                            { name: "Channel1Gain", type: "uint8", description: "250-500 Hz band gain" },
+                            { name: "Channel2Gain", type: "uint8", description: "500-1k Hz band gain" },
+                            { name: "Channel3Gain", type: "uint8", description: "1k-2k Hz band gain" }
+                        ]
+                    }
+                ]
+            }
+        ];
+        
+        function showParameterLinkDialog(stepId, mode) {
+            // Build parameter hierarchy UI
+            const modal = document.getElementById('linkParameterModal');
+            const hierarchyContainer = document.getElementById('parameterHierarchy');
+            hierarchyContainer.innerHTML = '';
+            
+            parameterHierarchy.forEach(context => {
+                const contextDiv = document.createElement('div');
+                contextDiv.className = 'mb-3';
+                contextDiv.innerHTML = `
+                    <div class="fw-bold mb-2 text-primary" style="cursor: pointer;" onclick="toggleContext(this)">
+                        <span class="expand-icon">▶</span> ${context.context}
+                    </div>
+                    <div class="context-content" style="display: none; margin-left: 20px;">
+                        ${context.groups.map(group => `
+                            <div class="mb-2">
+                                <div class="fw-semibold mb-1" style="cursor: pointer;" onclick="toggleGroup(this)">
+                                    <span class="expand-icon">▶</span> ${group.name}
+                                </div>
+                                <div class="group-content" style="display: none; margin-left: 20px;">
+                                    ${group.parameters.map(param => `
+                                        <div class="param-item p-2 border-bottom" style="cursor: pointer;" onclick="selectParameter('${param.name}', '${param.type}', '${mode}', ${stepId})">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <strong>${param.name}</strong>
+                                                    <span class="badge bg-secondary ms-2">${param.type}</span>
+                                                </div>
+                                                <button class="btn btn-sm btn-primary">+ Add ${mode}</button>
+                                            </div>
+                                            <div class="small text-muted">${param.description}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                hierarchyContainer.appendChild(contextDiv);
+            });
+            
+            document.getElementById('linkMode').value = mode;
+            document.getElementById('linkStepId').value = stepId;
+            new bootstrap.Modal(modal).show();
+        }
+        
+        function toggleContext(element) {
+            const content = element.nextElementSibling;
+            const icon = element.querySelector('.expand-icon');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+        
+        function toggleGroup(element) {
+            const content = element.nextElementSibling;
+            const icon = element.querySelector('.expand-icon');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+        
+        function selectParameter(paramName, paramType, mode, stepId) {
+            // In real implementation, this would make an AJAX call to add the parameter link
+            // For now, just close the modal - actual linking will be implemented server-side
+            bootstrap.Modal.getInstance(document.getElementById('linkParameterModal')).hide();
+            
+            // TODO: Implement actual parameter linking
+            // - POST to server with stepId, paramName, and mode (Read/Write)
+            // - Refresh the command section to show the new parameter link
+            // - Update the "Used Parameters" section at the top
+        }
+        
+        // Search parameters
+        document.getElementById('parameterHierarchySearch')?.addEventListener('input', function(e) {
+            const search = e.target.value.toLowerCase();
+            const paramItems = document.querySelectorAll('.param-item');
+            paramItems.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(search) ? '' : 'none';
+                
+                // Show parent group and context if param matches
+                if (text.includes(search) && search.length > 0) {
+                    let parent = item.closest('.group-content');
+                    if (parent) {
+                        parent.style.display = 'block';
+                        parent.previousElementSibling.querySelector('.expand-icon').textContent = '▼';
+                    }
+                    parent = item.closest('.context-content');
+                    if (parent) {
+                        parent.style.display = 'block';
+                        parent.previousElementSibling.querySelector('.expand-icon').textContent = '▼';
+                    }
+                }
+            });
+        });
+        
+        // Decision Point functionality
+        function toggleDecisionPointDetails(stepId) {
+            const details = document.getElementById(`decision-details-${stepId}`);
+            const icon = document.getElementById(`toggle-icon-${stepId}`);
+            if (details.style.display === 'none') {
+                details.style.display = 'block';
+                icon.textContent = '▲';
+            } else {
+                details.style.display = 'none';
+                icon.textContent = '▼';
+            }
+        }
+        
+        function updateDecisionPointAction(stepId, type, value) {
+            const targetSelect = document.getElementById(`${type}-target-${stepId}`);
+            
+            // Show/hide target selector based on selected action
+            if (value === 'skip-step' || value === 'skip-operation' || value === 'skip-rollback') {
+                targetSelect.style.display = 'block';
+            } else {
+                targetSelect.style.display = 'none';
+            }
+        }
+        
+        // Operation collapse/expand functionality
+        function toggleOperation(operationId) {
+            const content = document.getElementById(`operation-content-${operationId}`);
+            const header = document.getElementById(`operation-header-${operationId}`);
+            const icon = header.querySelector('.expand-icon');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.textContent = '▼';
+                header.classList.remove('collapsed');
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '▶';
+                header.classList.add('collapsed');
+            }
+        }
+        
+        function collapseAllOperations() {
+            document.querySelectorAll('[id^="operation-content-"]').forEach(content => {
+                content.style.display = 'none';
+            });
+            document.querySelectorAll('[id^="operation-header-"]').forEach(header => {
+                header.classList.add('collapsed');
+                const icon = header.querySelector('.expand-icon');
+                if (icon) icon.textContent = '▶';
+            });
+        }
+        
+        function expandAllOperations() {
+            document.querySelectorAll('[id^="operation-content-"]').forEach(content => {
+                content.style.display = 'block';
+            });
+            document.querySelectorAll('[id^="operation-header-"]').forEach(header => {
+                header.classList.remove('collapsed');
+                const icon = header.querySelector('.expand-icon');
+                if (icon) icon.textContent = '▼';
+            });
+        }
+        
+        // Step collapse/expand functionality
+        function toggleStep(stepId) {
+            const content = document.getElementById(`step-content-${stepId}`);
+            const header = document.getElementById(`step-header-${stepId}`);
+            const icon = header.querySelector('.step-expand-icon');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+        
+        // ==========================================
+        // Operation Type Toggle Functionality
+        // ==========================================
+        function switchOperationType(operationId, newType) {
+            const operationCard = document.querySelector(`[data-operation-id="${operationId}"]`) || 
+                                  document.getElementById(`operation-header-${operationId}`)?.closest('.card');
+            if (!operationCard) return;
+            
+            const header = operationCard.querySelector('.card-header');
+            const content = operationCard.querySelector('.card-body');
+            const typeBadge = header.querySelector('.badge.bg-primary, .badge.bg-secondary, .badge.bg-info');
+            const toggleButtons = header.querySelectorAll('.btn-group .btn');
+            
+            // Update button states
+            toggleButtons.forEach(btn => {
+                btn.classList.remove('btn-primary', 'btn-secondary', 'btn-info');
+                btn.classList.add('btn-outline-secondary');
+            });
+            
+            // Update based on new type
+            if (newType === 'multi-command') {
+                typeBadge.textContent = 'PICCOLO Multi-Command';
+                typeBadge.className = 'badge bg-primary ms-2';
+                toggleButtons[1].classList.remove('btn-outline-secondary');
+                toggleButtons[1].classList.add('btn-primary');
+                operationCard.classList.remove('border-secondary', 'border-info');
+                operationCard.classList.add('border-primary');
+                header.classList.remove('bg-secondary', 'bg-info');
+                header.classList.add('bg-primary');
+                
+                // Show aggregated payload section
+                showAggregatedPayload(operationId, content);
+                
+            } else if (newType === 'sequential') {
+                typeBadge.textContent = 'Sequential';
+                typeBadge.className = 'badge bg-secondary ms-2';
+                toggleButtons[0].classList.remove('btn-outline-secondary');
+                toggleButtons[0].classList.add('btn-secondary');
+                operationCard.classList.remove('border-primary', 'border-info');
+                operationCard.classList.add('border-secondary');
+                header.classList.remove('bg-primary', 'bg-info');
+                header.classList.add('bg-secondary');
+                
+                // Hide aggregated payload section
+                hideAggregatedPayload(operationId, content);
+                
+            } else if (newType === 'loop') {
+                typeBadge.textContent = 'Loop';
+                typeBadge.className = 'badge bg-info ms-2';
+                if (toggleButtons[2]) {
+                    toggleButtons[2].classList.remove('btn-outline-secondary');
+                    toggleButtons[2].classList.add('btn-info');
+                }
+                operationCard.classList.remove('border-primary', 'border-secondary');
+                operationCard.classList.add('border-info');
+            }
+            
+            // Store operation type
+            operationCard.dataset.operationType = newType;
+            
+            console.log(`Operation ${operationId} switched to ${newType}`);
+        }
+        
+        function showAggregatedPayload(operationId, contentElement) {
+            // Check if aggregated payload section already exists
+            let aggregatedSection = contentElement.querySelector('.aggregated-payload-section');
+            if (aggregatedSection) {
+                aggregatedSection.style.display = 'block';
+                return;
+            }
+            
+            // Collect all payloads from steps
+            const payloads = [];
+            contentElement.querySelectorAll('code').forEach(code => {
+                const text = code.textContent;
+                if (text.includes('0x')) {
+                    // Extract hex values
+                    const matches = text.match(/0x[0-9A-Fa-f]+/g);
+                    if (matches) {
+                        payloads.push(...matches);
+                    }
+                }
+            });
+            
+            // Create aggregated payload display
+            aggregatedSection = document.createElement('div');
+            aggregatedSection.className = 'aggregated-payload-section alert alert-primary mb-3';
+            aggregatedSection.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>📦 Aggregated Payload (Multi-Command)</strong>
+                        <div class="small mt-1">
+                            <code>${payloads.length > 0 ? '[' + payloads.join(', ') + ']' : '[No payloads]'}</code>
+                        </div>
+                        <div class="small text-muted mt-1">
+                            Total: ${payloads.length} bytes • Sent as single PICCOLO transaction
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary">📋 Copy</button>
+                </div>
+            `;
+            contentElement.insertBefore(aggregatedSection, contentElement.firstChild);
+        }
+        
+        function hideAggregatedPayload(operationId, contentElement) {
+            const aggregatedSection = contentElement.querySelector('.aggregated-payload-section');
+            if (aggregatedSection) {
+                aggregatedSection.style.display = 'none';
+            }
+        }
+        
+        // ==========================================
+        // Add Operation Modal Functionality
+        // ==========================================
+        function showAddOperationModal(insertAfterOperationId = null) {
+            document.getElementById('insertAfterOperation').value = insertAfterOperationId || '';
+            document.getElementById('newOperationName').value = '';
+            document.getElementById('selectedOperationType').value = '';
+            document.getElementById('loopConfiguration').style.display = 'none';
+            document.getElementById('createOperationBtn').disabled = true;
+            
+            // Reset card selections
+            document.querySelectorAll('.operation-type-card').forEach(card => {
+                card.classList.remove('border-primary', 'bg-light');
+            });
+            
+            new bootstrap.Modal(document.getElementById('addOperationModal')).show();
+        }
+        
+        function selectOperationType(type) {
+            document.getElementById('selectedOperationType').value = type;
+            document.getElementById('createOperationBtn').disabled = false;
+            
+            // Update card visual selection
+            document.querySelectorAll('.operation-type-card').forEach(card => {
+                card.classList.remove('border-primary', 'bg-light');
+                if (card.dataset.type === type) {
+                    card.classList.add('border-primary', 'bg-light');
+                }
+            });
+            
+            // Show/hide loop configuration
+            if (type === 'loop') {
+                document.getElementById('loopConfiguration').style.display = 'block';
+            } else {
+                document.getElementById('loopConfiguration').style.display = 'none';
+            }
+        }
+        
+        function createOperation() {
+            const name = document.getElementById('newOperationName').value || 'New Operation';
+            const type = document.getElementById('selectedOperationType').value;
+            const insertAfter = document.getElementById('insertAfterOperation').value;
+            
+            console.log(`Creating ${type} operation: ${name}, insert after: ${insertAfter || 'end'}`);
+            
+            // In a real implementation, this would:
+            // 1. POST to server to create the operation
+            // 2. Refresh the workflow section
+            // For now, we'll create a demo operation in the DOM
+            
+            const operationHtml = createOperationHtml(name, type, Date.now());
+            
+            if (insertAfter) {
+                // Insert after specific operation
+                const targetButton = document.querySelector(`[onclick*="showAddOperationModal(${insertAfter})"]`);
+                if (targetButton) {
+                    const insertPoint = targetButton.closest('.text-center');
+                    insertPoint.insertAdjacentHTML('afterend', operationHtml);
+                }
+            } else {
+                // Insert at end
+                const commandFlow = document.querySelector('.command-flow');
+                if (commandFlow) {
+                    commandFlow.insertAdjacentHTML('beforeend', operationHtml);
+                }
+            }
+            
+            bootstrap.Modal.getInstance(document.getElementById('addOperationModal')).hide();
+        }
+        
+        function createOperationHtml(name, type, id) {
+            const typeConfig = {
+                'sequential': { icon: '🔗', color: 'secondary', badge: 'Sequential' },
+                'multi-command': { icon: '📦', color: 'primary', badge: 'PICCOLO Multi-Command' },
+                'loop': { icon: '🔄', color: 'info', badge: 'Loop' }
+            };
+            const config = typeConfig[type] || typeConfig['sequential'];
+            
+            return `
+                <div class="text-center mb-3">
+                    <div style="width: 3px; height: 10px; background-color: #0d6efd; margin: 0 auto;"></div>
+                    <button type="button" class="btn btn-sm btn-outline-primary" style="font-size: 10px; padding: 3px 12px; border-style: dashed;"
+                            onclick="showAddOperationModal(${id})">
+                        ➕ Add Operation Here
+                    </button>
+                    <div style="width: 3px; height: 10px; background-color: #0d6efd; margin: 0 auto;"></div>
+                    <div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 10px solid #0d6efd; margin: 0 auto;"></div>
+                </div>
+                <div class="card mb-3 border-${config.color}" data-operation-id="${id}" data-operation-type="${type}">
+                    <div class="card-header bg-${config.color} bg-opacity-10" 
+                         id="operation-header-${id}"
+                         style="cursor: pointer;"
+                         onclick="toggleOperation(${id})">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <span class="expand-icon me-2 fw-bold">▼</span>
+                                <strong>${config.icon} Operation: ${name}</strong>
+                                <span class="badge bg-${config.color} ms-2">${config.badge}</span>
+                                <span class="badge bg-light text-dark ms-1">0 step(s)</span>
+                                <span class="badge bg-success ms-1">✓ Valid</span>
+                            </div>
+                            <div onclick="event.stopPropagation();">
+                                <div class="btn-group btn-group-sm me-2">
+                                    <button type="button" class="btn ${type === 'sequential' ? 'btn-secondary' : 'btn-outline-secondary'}" 
+                                            onclick="switchOperationType(${id}, 'sequential')">Sequential</button>
+                                    <button type="button" class="btn ${type === 'multi-command' ? 'btn-primary' : 'btn-outline-primary'}" 
+                                            onclick="switchOperationType(${id}, 'multi-command')">Multi-Cmd</button>
+                                    <button type="button" class="btn ${type === 'loop' ? 'btn-info' : 'btn-outline-info'}" 
+                                            onclick="switchOperationType(${id}, 'loop')">Loop</button>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary me-1">⚙️</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-2" id="operation-content-${id}">
+                        ${type === 'loop' ? createLoopConfigurationHtml(id) : ''}
+                        <div class="text-center py-3">
+                            <p class="text-muted small mb-2">No steps defined</p>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="showAddStepModal(${id}, null)">
+                                ➕ Add First Step
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function createLoopConfigurationHtml(operationId) {
+            return `
+                <div class="alert alert-info mb-3 loop-config-display">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong>🔄 Loop Configuration</strong>
+                            <div class="small mt-1">
+                                <span class="badge bg-secondary me-1">Max: 100 iterations</span>
+                                <span class="badge bg-secondary me-1">Timeout: 30s</span>
+                            </div>
+                            <div class="small mt-1 text-muted">
+                                Exit when: <code>iterationCount >= 10 OR response == 0x00</code>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-info" onclick="editLoopConfiguration(${operationId})">
+                            ⚙️ Configure
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // ==========================================
+        // Add Step Modal Functionality
+        // ==========================================
+        function showAddStepModal(operationId, afterStepId = null) {
+            document.getElementById('insertInOperation').value = operationId;
+            document.getElementById('insertAfterStep').value = afterStepId || '';
+            document.getElementById('selectedStepType').value = '';
+            document.getElementById('createStepBtn').disabled = true;
+            
+            // Reset card selections
+            document.querySelectorAll('.step-type-card').forEach(card => {
+                card.classList.remove('border-primary', 'bg-light');
+            });
+            
+            new bootstrap.Modal(document.getElementById('addStepModal')).show();
+        }
+        
+        function selectStepType(type) {
+            document.getElementById('selectedStepType').value = type;
+            document.getElementById('createStepBtn').disabled = false;
+            
+            // Update card visual selection
+            document.querySelectorAll('.step-type-card').forEach(card => {
+                card.classList.remove('border-primary', 'bg-light');
+            });
+            event.currentTarget.classList.add('border-primary', 'bg-light');
+        }
+        
+        function createStep() {
+            const stepType = document.getElementById('selectedStepType').value;
+            const operationId = document.getElementById('insertInOperation').value;
+            const afterStepId = document.getElementById('insertAfterStep').value;
+            
+            bootstrap.Modal.getInstance(document.getElementById('addStepModal')).hide();
+            
+            // Show step configuration modal based on type
+            showStepConfigurationModal(stepType, operationId, afterStepId);
+        }
+        
+        function showStepConfigurationModal(stepType, operationId, afterStepId) {
+            const modal = document.getElementById('configureStepModal');
+            const title = document.getElementById('configureStepTitle');
+            const body = document.getElementById('configureStepBody');
+            
+            const stepConfigs = {
+                'piccolo-command': {
+                    title: '📡 Configure PICCOLO Command',
+                    html: `
+                        <div class="mb-3">
+                            <label class="form-label">Select Command</label>
+                            <select class="form-select" id="stepCommandSelect">
+                                <option value="">-- Select a command --</option>
+                                <option value="0x01">WAKE_DEVICE (0x01)</option>
+                                <option value="0x02">CONFIGURE_RADIO (0x02)</option>
+                                <option value="0x03">VERIFY_CONNECTION (0x03)</option>
+                                <option value="0x10">GET_STATUS (0x10)</option>
+                                <option value="0x20">WRITE_FIRMWARE (0x20)</option>
+                                <option value="0x30">VALIDATE_CRC (0x30)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Payload (hex bytes, comma-separated)</label>
+                            <input type="text" class="form-control" id="stepPayload" placeholder="0x00, 0x01, 0x02">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Timeout (ms)</label>
+                            <input type="number" class="form-control" id="stepTimeout" value="1000">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes (optional)</label>
+                            <textarea class="form-control" id="stepNotes" rows="2"></textarea>
+                        </div>
+                    `
+                },
+                'command-with-response': {
+                    title: '📨 Configure Command with Response Check',
+                    html: `
+                        <div class="mb-3">
+                            <label class="form-label">Select Command</label>
+                            <select class="form-select" id="stepCommandSelect">
+                                <option value="">-- Select a command --</option>
+                                <option value="0x10">GET_STATUS (0x10)</option>
+                                <option value="0x03">VERIFY_CONNECTION (0x03)</option>
+                                <option value="0x30">VALIDATE_CRC (0x30)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Expected Response</label>
+                            <input type="text" class="form-control" id="expectedResponse" placeholder="0x00">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Store Response In Variable</label>
+                            <input type="text" class="form-control" id="responseVariable" placeholder="lastResponse">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Timeout (ms)</label>
+                            <input type="number" class="form-control" id="stepTimeout" value="1000">
+                        </div>
+                    `
+                },
+                'param-read': {
+                    title: '📖 Configure Parameter Read',
+                    html: `
+                        <div class="mb-3">
+                            <label class="form-label">Select Parameter</label>
+                            <select class="form-select" id="parameterSelect">
+                                <option value="">-- Select a parameter --</option>
+                                <option value="DfuMode">DfuMode</option>
+                                <option value="ParcelSizeBytes">ParcelSizeBytes</option>
+                                <option value="ValidationMethod">ValidationMethod</option>
+                                <option value="DirectionalityMode">DirectionalityMode</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Store In Variable</label>
+                            <input type="text" class="form-control" id="targetVariable" placeholder="readValue">
+                        </div>
+                    `
+                },
+                'param-write': {
+                    title: '✏️ Configure Parameter Write',
+                    html: `
+                        <div class="mb-3">
+                            <label class="form-label">Select Parameter</label>
+                            <select class="form-select" id="parameterSelect">
+                                <option value="">-- Select a parameter --</option>
+                                <option value="DfuMode">DfuMode</option>
+                                <option value="ParcelSizeBytes">ParcelSizeBytes</option>
+                                <option value="ValidationMethod">ValidationMethod</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Value Source</label>
+                            <select class="form-select" id="valueSource" onchange="toggleValueInput(this.value)">
+                                <option value="constant">Constant Value</option>
+                                <option value="variable">From Variable</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="constantValueSection">
+                            <label class="form-label">Value</label>
+                            <input type="text" class="form-control" id="paramValue" placeholder="64">
+                        </div>
+                        <div class="mb-3" id="variableValueSection" style="display:none;">
+                            <label class="form-label">Variable Name</label>
+                            <input type="text" class="form-control" id="sourceVariable" placeholder="calculatedValue">
+                        </div>
+                    `
+                },
+                'delay': {
+                    title: '⏱️ Configure Delay',
+                    html: `
+                        <div class="mb-3">
+                            <label class="form-label">Delay Duration (ms)</label>
+                            <input type="number" class="form-control" id="delayMs" value="500">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes (optional)</label>
+                            <input type="text" class="form-control" id="delayNotes" placeholder="Wait for device to stabilize">
+                        </div>
+                    `
+                },
+                'math-calc': {
+                    title: '➕ Configure Calculation',
+                    html: `
+                        <div class="mb-3">
+                            <label class="form-label">Result Variable</label>
+                            <input type="text" class="form-control" id="resultVar" placeholder="result">
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-5">
+                                <label class="form-label">Operand 1</label>
+                                <input type="text" class="form-control" id="operand1" placeholder="var or value">
+                            </div>
+                            <div class="col-2">
+                                <label class="form-label">Op</label>
+                                <select class="form-select" id="operator">
+                                    <option value="+">+</option>
+                                    <option value="-">-</option>
+                                    <option value="*">×</option>
+                                    <option value="/">/</option>
+                                    <option value="%">%</option>
+                                </select>
+                            </div>
+                            <div class="col-5">
+                                <label class="form-label">Operand 2</label>
+                                <input type="text" class="form-control" id="operand2" placeholder="var or value">
+                            </div>
+                        </div>
+                    `
+                },
+                'conditional': {
+                    title: '◆ Configure Conditional Branch',
+                    html: `
+                        <div class="mb-3">
+                            <label class="form-label">Condition</label>
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <input type="text" class="form-control" placeholder="variable" id="condVar">
+                                </div>
+                                <div class="col-2">
+                                    <select class="form-select" id="condOp">
+                                        <option>==</option>
+                                        <option>!=</option>
+                                        <option>&gt;</option>
+                                        <option>&gt;=</option>
+                                        <option>&lt;</option>
+                                        <option>&lt;=</option>
+                                    </select>
+                                </div>
+                                <div class="col-4">
+                                    <input type="text" class="form-control" placeholder="value" id="condVal">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">If True → </label>
+                            <select class="form-select" id="trueBranch">
+                                <option value="continue">Continue to next step</option>
+                                <option value="skip">Skip to step...</option>
+                                <option value="break">Break loop</option>
+                                <option value="fail">Fail operation</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">If False → </label>
+                            <select class="form-select" id="falseBranch">
+                                <option value="continue">Continue to next step</option>
+                                <option value="skip">Skip to step...</option>
+                                <option value="break">Break loop</option>
+                                <option value="fail">Fail operation</option>
+                            </select>
+                        </div>
+                    `
+                }
+            };
+            
+            const config = stepConfigs[stepType] || { title: 'Configure Step', html: '<p>Configuration not available for this step type.</p>' };
+            title.textContent = config.title;
+            body.innerHTML = config.html;
+            body.dataset.stepType = stepType;
+            body.dataset.operationId = operationId;
+            body.dataset.afterStepId = afterStepId;
+            
+            new bootstrap.Modal(modal).show();
+        }
+        
+        function toggleValueInput(source) {
+            document.getElementById('constantValueSection').style.display = source === 'constant' ? 'block' : 'none';
+            document.getElementById('variableValueSection').style.display = source === 'variable' ? 'block' : 'none';
+        }
+        
+        function saveStep() {
+            const body = document.getElementById('configureStepBody');
+            const stepType = body.dataset.stepType;
+            const operationId = body.dataset.operationId;
+            
+            console.log(`Saving step of type ${stepType} to operation ${operationId}`);
+            
+            // In real implementation, POST to server and refresh
+            // For demo, just close modal and show success message
+            bootstrap.Modal.getInstance(document.getElementById('configureStepModal')).hide();
+            
+            // Show toast notification
+            alert(`Step added successfully! (Type: ${stepType})`);
+        }
+        
+        // ==========================================
+        // Loop Configuration Functions
+        // ==========================================
+        function addLoopVariable() {
+            const container = document.getElementById('loopVariablesContainer');
+            const newRow = document.createElement('div');
+            newRow.className = 'row g-2 mb-2 loop-variable-row';
+            newRow.innerHTML = `
+                <div class="col-md-4">
+                    <input type="text" class="form-control form-control-sm" placeholder="Variable Name">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm">
+                        <option>Counter (auto-increment)</option>
+                        <option>Timer (elapsed ms)</option>
+                        <option>Custom Value</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="number" class="form-control form-control-sm" placeholder="Initial Value" value="0">
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="this.closest('.loop-variable-row').remove()">🗑️</button>
+                </div>
+            `;
+            container.appendChild(newRow);
+        }
+        
+        function addConditionGroup() {
+            const container = document.getElementById('exitConditionsContainer');
+            const groupCount = container.querySelectorAll('.condition-group').length + 1;
+            const newGroup = document.createElement('div');
+            newGroup.className = 'condition-group mb-3 p-2 border rounded';
+            newGroup.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <span class="badge bg-warning me-2">OR</span>
+                        <span class="badge bg-info">Condition Group ${groupCount}</span>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.condition-group').remove()">Remove Group</button>
+                </div>
+                <div class="condition-row mb-2">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" onchange="updateConditionSource(this)">
+                                <option value="variable">Variable</option>
+                                <option value="parameter">Parameter Read</option>
+                                <option value="response">Command Response</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm condition-source-select">
+                                <option>iterationCount</option>
+                                <option>elapsedTime</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select form-select-sm">
+                                <option>==</option>
+                                <option>!=</option>
+                                <option>&gt;</option>
+                                <option>&gt;=</option>
+                                <option>&lt;</option>
+                                <option>&lt;=</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="text" class="form-control form-control-sm" placeholder="Value">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.condition-row').remove()">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addConditionToGroup(this, 'AND')">+ AND</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addConditionToGroup(this, 'OR')">+ OR</button>
+                </div>
+            `;
+            container.appendChild(newGroup);
+        }
+        
+        function addConditionToGroup(button, logicOp) {
+            const group = button.closest('.condition-group');
+            const buttonContainer = button.parentElement;
+            const newRow = document.createElement('div');
+            newRow.className = 'condition-row mb-2';
+            newRow.innerHTML = `
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-1 text-center">
+                        <span class="badge bg-secondary">${logicOp}</span>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select form-select-sm" onchange="updateConditionSource(this)">
+                            <option value="variable">Variable</option>
+                            <option value="parameter">Parameter</option>
+                            <option value="response">Response</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm condition-source-select">
+                            <option>iterationCount</option>
+                            <option>elapsedTime</option>
+                            <option>lastResponse</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select form-select-sm">
+                            <option>==</option>
+                            <option>!=</option>
+                            <option>&gt;</option>
+                            <option>&gt;=</option>
+                            <option>&lt;</option>
+                            <option>&lt;=</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" class="form-control form-control-sm" placeholder="Value">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.condition-row').remove()">🗑️</button>
+                    </div>
+                </div>
+            `;
+            group.insertBefore(newRow, buttonContainer);
+        }
+        
+        function updateConditionSource(select) {
+            const row = select.closest('.condition-row');
+            const sourceSelect = row.querySelector('.condition-source-select');
+            
+            const options = {
+                'variable': ['iterationCount', 'elapsedTime', 'lastResponse', 'customVar'],
+                'parameter': ['DfuMode', 'ParcelSizeBytes', 'ValidationMethod', 'DirectionalityMode'],
+                'response': ['lastCommandResponse', 'statusCode', 'errorCode']
+            };
+            
+            const newOptions = options[select.value] || [];
+            sourceSelect.innerHTML = newOptions.map(opt => `<option>${opt}</option>`).join('');
+        }
+        
+        function editLoopConfiguration(operationId) {
+            // Would show a detailed loop configuration modal
+            alert(`Edit loop configuration for operation ${operationId}`);
+        }
     </script>
 }
