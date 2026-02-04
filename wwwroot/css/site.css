@@ -82,3 +82,105 @@ body {
 .step-type-card:hover .card-body {
   background-color: #f0f7ff;
 }
+
+/* ==========================================
+   VIEW/EDIT MODE STYLES
+   ========================================== */
+
+/* Edit mode active indicator */
+.edit-mode-active {
+  border-color: #0d6efd !important;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+}
+
+/* View mode - compact step display */
+.step-view-mode {
+  padding: 2px 0;
+}
+
+.step-view-mode .badge {
+  font-weight: 500;
+}
+
+/* Edit mode - expanded step display */
+.step-edit-mode {
+  padding: 8px 0;
+  background-color: #fafbfc;
+  border-radius: 4px;
+}
+
+/* Edit button styles when active */
+.btn-outline-secondary.btn-primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: white;
+}
+
+/* Operation card in edit mode */
+[data-edit-mode="true"] {
+  background-color: #fefeff;
+}
+
+[data-edit-mode="true"] .card-header {
+  background-color: rgba(13, 110, 253, 0.1) !important;
+}
+
+/* Step conditional and branch alerts */
+.step-conditional, .step-branch {
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.step-conditional .form-label,
+.step-branch .form-label {
+  font-size: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Smooth transitions for view/edit toggle */
+.step-view-mode, .step-edit-mode {
+  transition: opacity 0.2s ease;
+}
+
+/* Flow arrows between steps (view mode) */
+.flow-arrow {
+  opacity: 0.5;
+}
+
+/* Edit mode indicators */
+.operation-edit-item {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Delete animation */
+.deleting {
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: all 0.3s ease;
+}
+
+/* Step move animation */
+.moving-up {
+  animation: moveUp 0.3s ease;
+}
+
+.moving-down {
+  animation: moveDown 0.3s ease;
+}
+
+@keyframes moveUp {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes moveDown {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(10px); }
+  100% { transform: translateY(0); }
+}

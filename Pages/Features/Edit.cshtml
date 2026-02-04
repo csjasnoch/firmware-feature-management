@@ -232,7 +232,7 @@
                                 var stepCount = group.Commands.Count;
                                 var estTime = group.Commands.Count * 50; // Simulated estimate
                                 
-                                <div class="card mb-3 border-@groupColor">
+                                <div class="card mb-3 border-@groupColor" data-operation-id="@groupNum" data-edit-mode="false">
                                     <!-- Collapsible Operation Header -->
                                     <div class="card-header bg-@groupColor bg-opacity-10" 
                                          id="operation-header-@groupNum"
@@ -255,26 +255,33 @@
                                                 <span class="badge bg-success ms-1">✓ Valid</span>
                                             </div>
                                             <div onclick="event.stopPropagation();">
-                                                <!-- Operation Type Toggle -->
-                                                <div class="btn-group btn-group-sm me-2">
-                                                    <button type="button" class="btn @(group.IsMultiCommand ? "btn-outline-secondary" : "btn-secondary")" 
-                                                            title="Sequential: Execute steps one at a time"
-                                                            onclick="switchOperationType(@groupNum, 'sequential')">
-                                                        Sequential
-                                                    </button>
-                                                    <button type="button" class="btn @(group.IsMultiCommand ? "btn-primary" : "btn-outline-primary")" 
-                                                            title="Multi-Command: Batch all steps"
-                                                            onclick="switchOperationType(@groupNum, 'multi-command')">
-                                                        Multi-Cmd
-                                                    </button>
-                                                    <button type="button" class="btn btn-outline-info" 
-                                                            title="Loop: Repeat steps until condition"
-                                                            onclick="switchOperationType(@groupNum, 'loop')">
-                                                        Loop
-                                                    </button>
+                                                <!-- Edit Mode Toggle Controls (hidden in view mode) -->
+                                                <div class="operation-edit-controls" id="operation-edit-controls-@groupNum" style="display: none;">
+                                                    <div class="btn-group btn-group-sm me-2">
+                                                        <button type="button" class="btn @(group.IsMultiCommand ? "btn-outline-secondary" : "btn-secondary")" 
+                                                                title="Sequential: Execute steps one at a time"
+                                                                onclick="switchOperationType(@groupNum, 'sequential')">
+                                                            Sequential
+                                                        </button>
+                                                        <button type="button" class="btn @(group.IsMultiCommand ? "btn-primary" : "btn-outline-primary")" 
+                                                                title="Multi-Command: Batch all steps"
+                                                                onclick="switchOperationType(@groupNum, 'multi-command')">
+                                                            Multi-Cmd
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-info" 
+                                                                title="Loop: Repeat steps until condition"
+                                                                onclick="switchOperationType(@groupNum, 'loop')">
+                                                            Loop
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary me-1">⚙️</button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger">🗑️</button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary me-1" 
+                                                        id="operation-edit-btn-@groupNum"
+                                                        title="Edit Operation" 
+                                                        onclick="toggleOperationEditMode(@groupNum)">⚙️</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        title="Delete Operation"
+                                                        onclick="confirmDeleteOperation(@groupNum, '@group.Name')">🗑️</button>
                                             </div>
                                         </div>
                                     </div>
@@ -287,231 +294,259 @@
                                             var isStatusCheck = cmd.CommandName.Contains("GetStatus") || cmd.CommandName.Contains("Check");
                                             var isDecisionPoint = isStatusCheck && i < group.Commands.Count - 1;
                                             
-                                            <div class="card mb-2 @(isStatusCheck ? "border-warning" : "")" style="margin-left: 10px;">
+                                            <div class="card mb-2 @(isStatusCheck ? "border-warning" : "")" style="margin-left: 10px;" data-step-id="@cmd.ExecutionOrder" data-operation-id="@groupNum" data-edit-mode="false">
                                                 <div class="card-body py-2 px-3">
-                                                    <div class="d-flex justify-content-between align-items-start">
-                                                        <div class="flex-grow-1">
-                                                            <div class="d-flex align-items-center mb-1">
-                                                                <span class="badge @(isStatusCheck ? "bg-warning" : "bg-dark") me-2">
+                                                    <!-- VIEW MODE: Clean, compact display -->
+                                                    <div class="step-view-mode" id="step-view-@groupNum-@cmd.ExecutionOrder">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <div class="d-flex align-items-center">
+                                                                <span class="badge @(isStatusCheck ? "bg-warning text-dark" : "bg-dark") me-2" style="min-width: 55px;">
                                                                     Step @cmd.ExecutionOrder
                                                                 </span>
-                                                                <strong class="me-2">@cmd.CommandName</strong>
-                                                                <code class="small">@string.Format("0x{0:X2}", cmd.CommandCode)</code>
+                                                                <span class="fw-semibold me-2">@cmd.CommandName</span>
+                                                                <code class="small text-muted">@string.Format("0x{0:X2}", cmd.CommandCode)</code>
                                                                 @if (isStatusCheck)
                                                                 {
-                                                                    <span class="badge bg-info ms-2">🔍 Status Check</span>
+                                                                    <span class="badge bg-info ms-2">🔍</span>
+                                                                }
+                                                                @if (cmd.Payload.Any())
+                                                                {
+                                                                    <span class="badge bg-secondary ms-2" title="@cmd.Payload.Count bytes">📦 @cmd.Payload.Count</span>
                                                                 }
                                                             </div>
-                                                            
-                                                            @if (!string.IsNullOrEmpty(cmd.Notes))
+                                                            <div>
+                                                                <button type="button" class="btn btn-sm btn-outline-secondary me-1" 
+                                                                        title="Edit Step" 
+                                                                        onclick="toggleStepEditMode(@groupNum, @cmd.ExecutionOrder)">⚙️</button>
+                                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                                        title="Delete Step"
+                                                                        onclick="confirmDeleteStep(@groupNum, @cmd.ExecutionOrder, '@cmd.CommandName')">🗑️</button>
+                                                            </div>
+                                                        </div>
+                                                        @if (!string.IsNullOrEmpty(cmd.Notes))
+                                                        {
+                                                            <div class="small text-muted mt-1 ps-5">@cmd.Notes</div>
+                                                        }
+                                                    </div>
+                                                    
+                                                    <!-- EDIT MODE: Full editing capabilities -->
+                                                    <div class="step-edit-mode" id="step-edit-@groupNum-@cmd.ExecutionOrder" style="display: none;">
+                                                        <div class="d-flex align-items-center mb-2">
+                                                            <span class="badge @(isStatusCheck ? "bg-warning" : "bg-dark") me-2">
+                                                                Step @cmd.ExecutionOrder
+                                                            </span>
+                                                            <strong class="me-2">@cmd.CommandName</strong>
+                                                            <code class="small">@string.Format("0x{0:X2}", cmd.CommandCode)</code>
+                                                            @if (isStatusCheck)
                                                             {
-                                                                <div class="small text-muted mb-2">
-                                                                    📝 @cmd.Notes
-                                                                </div>
+                                                                <span class="badge bg-info ms-2">🔍 Status Check</span>
                                                             }
+                                                        </div>
                                                             
-                                                            <!-- Parameter References - Only show if this command uses parameters -->
-                                                            @{
-                                                                // In real implementation, this would come from command metadata
-                                                                // For now, showing examples only where relevant
-                                                                var hasParamUsage = false;
-                                                                List<string> paramReads = new List<string>();
-                                                                List<string> paramWrites = new List<string>();
-                                                                
-                                                                // Example: Step 1 reads configuration parameters
-                                                                if (cmd.ExecutionOrder == 1)
-                                                                {
-                                                                    hasParamUsage = true;
-                                                                    paramReads.Add("DfuMode");
-                                                                    paramReads.Add("EnablePauseResume");
-                                                                }
-                                                                // Example: Step 3 writes configuration
-                                                                else if (cmd.ExecutionOrder == 3)
-                                                                {
-                                                                    hasParamUsage = true;
-                                                                    paramWrites.Add("ParcelSizeBytes = 64");
-                                                                }
-                                                                // Example: Step 10 reads and writes
-                                                                else if (cmd.ExecutionOrder == 10)
-                                                                {
-                                                                    hasParamUsage = true;
-                                                                    paramReads.Add("MaxSwitchoverTimeSec");
-                                                                    paramWrites.Add("ValidationMethod = 1");
-                                                                }
-                                                            }
+                                                        @if (!string.IsNullOrEmpty(cmd.Notes))
+                                                        {
+                                                            <div class="small text-muted mb-2">
+                                                                📝 @cmd.Notes
+                                                            </div>
+                                                        }
                                                             
-                                                            @if (hasParamUsage)
+                                                        <!-- Parameter References - Only show if this command uses parameters -->
+                                                        @{
+                                                            // In real implementation, this would come from command metadata
+                                                            // For now, showing examples only where relevant
+                                                            var hasParamUsage = false;
+                                                            List<string> paramReads = new List<string>();
+                                                            List<string> paramWrites = new List<string>();
+                                                            
+                                                            // Example: Step 1 reads configuration parameters
+                                                            if (cmd.ExecutionOrder == 1)
                                                             {
-                                                                <div class="mb-2 p-2 bg-light rounded border">
-                                                                    <div class="small d-flex align-items-center justify-content-between">
-                                                                        <div>
-                                                                            <strong>Parameter Usage:</strong>
-                                                                        </div>
-                                                                        <div>
-                                                                            @if (paramReads.Any())
-                                                                            {
-                                                                                <span class="badge bg-success me-1" style="cursor: pointer;" 
-                                                                                      onclick="toggleParameterSection(@cmd.ExecutionOrder, 'read')">
-                                                                                    📖 Read<span class="collapse-indicator"></span>
-                                                                                </span>
-                                                                            }
-                                                                            @if (paramWrites.Any())
-                                                                            {
-                                                                                <span class="badge bg-primary me-1" style="cursor: pointer;" 
-                                                                                      onclick="toggleParameterSection(@cmd.ExecutionOrder, 'write')">
-                                                                                    ✏️ Write<span class="collapse-indicator"></span>
-                                                                                </span>
-                                                                            }
-                                                                            <button type="button" class="btn btn-outline-success btn-sm" 
-                                                                                    style="padding: 1px 6px; font-size: 11px;" 
-                                                                                    onclick="showParameterLinkDialog(@cmd.ExecutionOrder, 'Read')">
-                                                                                + Read
-                                                                            </button>
-                                                                            <button type="button" class="btn btn-outline-primary btn-sm" 
-                                                                                    style="padding: 1px 6px; font-size: 11px;"
-                                                                                    onclick="showParameterLinkDialog(@cmd.ExecutionOrder, 'Write')">
-                                                                                + Write
-                                                                            </button>
-                                                                        </div>
+                                                                hasParamUsage = true;
+                                                                paramReads.Add("DfuMode");
+                                                                paramReads.Add("EnablePauseResume");
+                                                            }
+                                                            // Example: Step 3 writes configuration
+                                                            else if (cmd.ExecutionOrder == 3)
+                                                            {
+                                                                hasParamUsage = true;
+                                                                paramWrites.Add("ParcelSizeBytes = 64");
+                                                            }
+                                                            // Example: Step 10 reads and writes
+                                                            else if (cmd.ExecutionOrder == 10)
+                                                            {
+                                                                hasParamUsage = true;
+                                                                paramReads.Add("MaxSwitchoverTimeSec");
+                                                                paramWrites.Add("ValidationMethod = 1");
+                                                            }
+                                                        }
+                                                            
+                                                        @if (hasParamUsage)
+                                                        {
+                                                            <div class="mb-2 p-2 bg-light rounded border">
+                                                                <div class="small d-flex align-items-center justify-content-between">
+                                                                    <div>
+                                                                        <strong>Parameter Usage:</strong>
                                                                     </div>
-                                                                    @if (paramReads.Any())
-                                                                    {
-                                                                        <div id="param-read-@cmd.ExecutionOrder" class="small mt-1">
-                                                                            @foreach (var param in paramReads)
-                                                                            {
-                                                                                <span class="badge bg-success bg-opacity-25 text-dark me-1 mb-1">
-                                                                                    📖 @param
-                                                                                    <button type="button" class="btn-close btn-sm ms-1" style="font-size: 8px; padding: 2px;" title="Remove"></button>
-                                                                                </span>
-                                                                            }
-                                                                        </div>
-                                                                    }
-                                                                    @if (paramWrites.Any())
-                                                                    {
-                                                                        <div id="param-write-@cmd.ExecutionOrder" class="small mt-1">
-                                                                            @foreach (var param in paramWrites)
-                                                                            {
-                                                                                <span class="badge bg-primary bg-opacity-25 text-dark me-1 mb-1">
-                                                                                    ✏️ @param
-                                                                                    <button type="button" class="btn-close btn-sm ms-1" style="font-size: 8px; padding: 2px;" title="Remove"></button>
-                                                                                </span>
-                                                                            }
-                                                                        </div>
-                                                                    }
-                                                                </div>
-                                                            }
-                                                            else
-                                                            {
-                                                                <!-- Show add parameter button only when no parameters linked -->
-                                                                <div class="mb-2">
-                                                                    <button type="button" class="btn btn-outline-secondary btn-sm" 
-                                                                            style="padding: 2px 8px; font-size: 11px;" 
-                                                                            onclick="showParameterLinkDialog(@cmd.ExecutionOrder, 'Read')">
-                                                                        + Link Parameter
-                                                                    </button>
-                                                                </div>
-                                                            }
-                                                            
-                                                            @if (cmd.Payload.Any())
-                                                            {
-                                                                <div class="small mb-2">
-                                                                    <strong>Payload:</strong> 
-                                                                    <code>[@string.Join(", ", cmd.Payload.Select(b => $"0x{b:X2}"))]</code>
-                                                                </div>
-                                                            }
-                                                            
-                                                            @if (isDecisionPoint)
-                                                            {
-                                                                <div class="mt-2 p-2 bg-light rounded border decision-point-container">
-                                                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                                                        <strong class="small">🔀 Decision Point</strong>
-                                                                        <button type="button" class="btn btn-outline-secondary btn-sm" style="font-size: 10px; padding: 2px 6px;" 
-                                                                                onclick="toggleDecisionPointDetails(@cmd.ExecutionOrder)">
-                                                                            <span id="toggle-icon-@cmd.ExecutionOrder">▼</span> Details
+                                                                    <div>
+                                                                        @if (paramReads.Any())
+                                                                        {
+                                                                            <span class="badge bg-success me-1">📖 Read (@paramReads.Count)</span>
+                                                                        }
+                                                                        @if (paramWrites.Any())
+                                                                        {
+                                                                            <span class="badge bg-primary me-1">✏️ Write (@paramWrites.Count)</span>
+                                                                        }
+                                                                        <button type="button" class="btn btn-outline-success btn-sm" 
+                                                                                style="padding: 1px 6px; font-size: 11px;" 
+                                                                                onclick="showParameterLinkDialog(@cmd.ExecutionOrder, 'Read')">
+                                                                            + Read
+                                                                        </button>
+                                                                        <button type="button" class="btn btn-outline-primary btn-sm" 
+                                                                                style="padding: 1px 6px; font-size: 11px;"
+                                                                                onclick="showParameterLinkDialog(@cmd.ExecutionOrder, 'Write')">
+                                                                            + Write
                                                                         </button>
                                                                     </div>
+                                                                </div>
+                                                                @if (paramReads.Any())
+                                                                {
+                                                                    <div class="small mt-1">
+                                                                        @foreach (var param in paramReads)
+                                                                        {
+                                                                            <span class="badge bg-success bg-opacity-25 text-dark me-1 mb-1">
+                                                                                📖 @param
+                                                                                <button type="button" class="btn-close btn-sm ms-1" style="font-size: 8px; padding: 2px;" title="Remove"></button>
+                                                                            </span>
+                                                                        }
+                                                                    </div>
+                                                                }
+                                                                @if (paramWrites.Any())
+                                                                {
+                                                                    <div class="small mt-1">
+                                                                        @foreach (var param in paramWrites)
+                                                                        {
+                                                                            <span class="badge bg-primary bg-opacity-25 text-dark me-1 mb-1">
+                                                                                ✏️ @param
+                                                                                <button type="button" class="btn-close btn-sm ms-1" style="font-size: 8px; padding: 2px;" title="Remove"></button>
+                                                                            </span>
+                                                                        }
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        }
+                                                        else
+                                                        {
+                                                            <!-- Show add parameter button only when no parameters linked -->
+                                                            <div class="mb-2">
+                                                                <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                                                        style="padding: 2px 8px; font-size: 11px;" 
+                                                                        onclick="showParameterLinkDialog(@cmd.ExecutionOrder, 'Read')">
+                                                                    + Link Parameter
+                                                                </button>
+                                                            </div>
+                                                        }
+                                                            
+                                                        @if (cmd.Payload.Any())
+                                                        {
+                                                            <div class="small mb-2">
+                                                                <strong>Payload:</strong> 
+                                                                <code>[@string.Join(", ", cmd.Payload.Select(b => $"0x{b:X2}"))]</code>
+                                                            </div>
+                                                        }
+                                                            
+                                                        @if (isDecisionPoint)
+                                                        {
+                                                            <div class="mt-2 p-2 bg-light rounded border decision-point-container">
+                                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                    <strong class="small">🔀 Decision Point</strong>
+                                                                    <button type="button" class="btn btn-outline-secondary btn-sm" style="font-size: 10px; padding: 2px 6px;" 
+                                                                            onclick="toggleDecisionPointDetails(@cmd.ExecutionOrder)">
+                                                                        <span id="toggle-icon-@cmd.ExecutionOrder">▼</span> Details
+                                                                    </button>
+                                                                </div>
                                                                     
-                                                                    <!-- Compact view (always visible) -->
-                                                                    <div class="small">
-                                                                        <div class="row g-2">
-                                                                            <div class="col-md-6">
-                                                                                <div class="d-flex align-items-center">
-                                                                                    <span class="text-success me-2">✓ Success:</span>
-                                                                                    <select class="form-select form-select-sm" style="font-size: 11px;" id="success-action-@cmd.ExecutionOrder"
-                                                                                            onchange="updateDecisionPointAction(@cmd.ExecutionOrder, 'success', this.value)">
-                                                                                        <option value="continue" selected>Continue to Step @(cmd.ExecutionOrder + 1)</option>
-                                                                                        <option value="skip-step">Skip to Step...</option>
-                                                                                        <option value="skip-operation">Skip to Operation...</option>
-                                                                                        <option value="complete-operation">Complete Operation</option>
-                                                                                        <option value="complete-workflow">Complete Workflow (Success)</option>
-                                                                                    </select>
-                                                                                </div>
-                                                                                <!-- Step/Operation selector (shown when skip option selected) -->
-                                                                                <div id="success-target-@cmd.ExecutionOrder" class="mt-1" style="display: none;">
-                                                                                    <select class="form-select form-select-sm" style="font-size: 11px;">
-                                                                                        <option>Step 2: Verify Connection</option>
-                                                                                        <option>Step 3: Configure Radio</option>
-                                                                                        <option>Step 4: Validate</option>
-                                                                                        <option>Operation 2: Radio Detection Loop</option>
-                                                                                        <option>Operation 3: Configure & Verify</option>
-                                                                                    </select>
-                                                                                </div>
+                                                                <!-- Compact view (always visible) -->
+                                                                <div class="small">
+                                                                    <div class="row g-2">
+                                                                        <div class="col-md-6">
+                                                                            <div class="d-flex align-items-center">
+                                                                                <span class="text-success me-2">✓ Success:</span>
+                                                                                <select class="form-select form-select-sm" style="font-size: 11px;" id="success-action-@cmd.ExecutionOrder"
+                                                                                        onchange="updateDecisionPointAction(@cmd.ExecutionOrder, 'success', this.value)">
+                                                                                    <option value="continue" selected>Continue to Step @(cmd.ExecutionOrder + 1)</option>
+                                                                                    <option value="skip-step">Skip to Step...</option>
+                                                                                    <option value="skip-operation">Skip to Operation...</option>
+                                                                                    <option value="complete-operation">Complete Operation</option>
+                                                                                    <option value="complete-workflow">Complete Workflow (Success)</option>
+                                                                                </select>
                                                                             </div>
-                                                                            <div class="col-md-6">
-                                                                                <div class="d-flex align-items-center">
-                                                                                    <span class="text-danger me-2">✗ Failure:</span>
-                                                                                    <select class="form-select form-select-sm" style="font-size: 11px;" id="failure-action-@cmd.ExecutionOrder"
-                                                                                            onchange="updateDecisionPointAction(@cmd.ExecutionOrder, 'failure', this.value)">
-                                                                                        <option value="retry">Retry This Step (max 3)</option>
-                                                                                        <option value="skip-step">Skip to Step...</option>
-                                                                                        <option value="skip-rollback" selected>Skip to Rollback</option>
-                                                                                        <option value="fail-operation">Fail Operation</option>
-                                                                                        <option value="fail-workflow">Fail Workflow</option>
-                                                                                    </select>
-                                                                                </div>
-                                                                                <!-- Target selector (shown when skip/rollback option selected) -->
-                                                                                <div id="failure-target-@cmd.ExecutionOrder" class="mt-1">
-                                                                                    <select class="form-select form-select-sm" style="font-size: 11px;">
-                                                                                        <option>Step 13: Rollback Handler</option>
-                                                                                        <option>Step 2: Reset & Retry</option>
-                                                                                        <option>Operation 5: Rollback Handler</option>
-                                                                                    </select>
-                                                                                </div>
+                                                                            <div id="success-target-@cmd.ExecutionOrder" class="mt-1" style="display: none;">
+                                                                                <select class="form-select form-select-sm" style="font-size: 11px;">
+                                                                                    <option>Step 2: Verify Connection</option>
+                                                                                    <option>Step 3: Configure Radio</option>
+                                                                                    <option>Step 4: Validate</option>
+                                                                                </select>
                                                                             </div>
                                                                         </div>
-                                                                    </div>
-                                                                    
-                                                                    <!-- Expanded details (hidden by default) -->
-                                                                    <div id="decision-details-@cmd.ExecutionOrder" class="mt-2 pt-2 border-top" style="display: none;">
-                                                                        <div class="row g-2 small">
-                                                                            <div class="col-md-6">
-                                                                                <label class="form-label mb-1" style="font-size: 11px;">Retry Configuration:</label>
-                                                                                <div class="input-group input-group-sm">
-                                                                                    <span class="input-group-text" style="font-size: 10px;">Max Retries</span>
-                                                                                    <input type="number" class="form-control" value="3" min="1" max="10" style="font-size: 11px;">
-                                                                                </div>
-                                                                                <div class="input-group input-group-sm mt-1">
-                                                                                    <span class="input-group-text" style="font-size: 10px;">Delay (ms)</span>
-                                                                                    <input type="number" class="form-control" value="500" min="0" max="10000" style="font-size: 11px;">
-                                                                                </div>
+                                                                        <div class="col-md-6">
+                                                                            <div class="d-flex align-items-center">
+                                                                                <span class="text-danger me-2">✗ Failure:</span>
+                                                                                <select class="form-select form-select-sm" style="font-size: 11px;" id="failure-action-@cmd.ExecutionOrder"
+                                                                                        onchange="updateDecisionPointAction(@cmd.ExecutionOrder, 'failure', this.value)">
+                                                                                    <option value="retry">Retry This Step (max 3)</option>
+                                                                                    <option value="skip-step">Skip to Step...</option>
+                                                                                    <option value="skip-rollback" selected>Skip to Rollback</option>
+                                                                                    <option value="fail-operation">Fail Operation</option>
+                                                                                    <option value="fail-workflow">Fail Workflow</option>
+                                                                                </select>
                                                                             </div>
-                                                                            <div class="col-md-6">
-                                                                                <label class="form-label mb-1" style="font-size: 11px;">Error Handling:</label>
+                                                                            <div id="failure-target-@cmd.ExecutionOrder" class="mt-1">
                                                                                 <select class="form-select form-select-sm" style="font-size: 11px;">
-                                                                                    <option>ErrorCode.COMMAND_FAILED</option>
-                                                                                    <option>ErrorCode.TIMEOUT</option>
-                                                                                    <option>ErrorCode.DEVICE_ERROR</option>
-                                                                                    <option>Custom Error Code...</option>
+                                                                                    <option>Step 13: Rollback Handler</option>
+                                                                                    <option>Step 2: Reset & Retry</option>
                                                                                 </select>
                                                                             </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                            }
-                                                        </div>
-                                                        <div class="ms-2">
-                                                            <button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Edit">⚙️</button>
-                                                            <button type="button" class="btn btn-sm btn-outline-danger" title="Remove">🗑️</button>
+                                                            </div>
+                                                        }
+                                                        
+                                                        <!-- Edit mode action buttons -->
+                                                        <div class="mt-3 pt-2 border-top">
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <div>
+                                                                    <button type="button" class="btn btn-sm btn-outline-primary me-1" 
+                                                                            onclick="addConditionalToStep(@groupNum, @cmd.ExecutionOrder)">
+                                                                        ◆ Add Conditional
+                                                                    </button>
+                                                                    <button type="button" class="btn btn-sm btn-outline-info me-1"
+                                                                            onclick="addBranchToStep(@groupNum, @cmd.ExecutionOrder)">
+                                                                        🔀 Add Branch
+                                                                    </button>
+                                                                    <div class="btn-group btn-group-sm">
+                                                                        <button type="button" class="btn btn-outline-secondary" 
+                                                                                title="Move Up" 
+                                                                                onclick="moveStep(@groupNum, @cmd.ExecutionOrder, 'up')">↑</button>
+                                                                        <button type="button" class="btn btn-outline-secondary" 
+                                                                                title="Move Down" 
+                                                                                onclick="moveStep(@groupNum, @cmd.ExecutionOrder, 'down')">↓</button>
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <button type="button" class="btn btn-sm btn-success me-1" 
+                                                                            onclick="saveStepChanges(@groupNum, @cmd.ExecutionOrder)">
+                                                                        ✓ Done
+                                                                    </button>
+                                                                    <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                                                            onclick="toggleStepEditMode(@groupNum, @cmd.ExecutionOrder)">
+                                                                        Cancel
+                                                                    </button>
+                                                                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" 
+                                                                            title="Delete Step"
+                                                                            onclick="confirmDeleteStep(@groupNum, @cmd.ExecutionOrder, '@cmd.CommandName')">🗑️</button>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -519,8 +554,8 @@
                                             
                                             @if (i < group.Commands.Count - 1)
                                             {
-                                                <!-- Add Step Here button between steps -->
-                                                <div class="text-center my-2" style="margin-left: 30px;">
+                                                <!-- Add Step Here button between steps (visible only in edit mode) -->
+                                                <div class="text-center my-2 operation-edit-item" data-operation="@groupNum" style="margin-left: 30px; display: none;">
                                                     <div style="width: 2px; height: 8px; background-color: #6c757d; margin: 0 auto;"></div>
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" style="font-size: 10px; padding: 2px 8px; border-style: dashed;"
                                                             onclick="showAddStepModal(@groupNum, @cmd.ExecutionOrder)">
@@ -529,11 +564,16 @@
                                                     <div style="width: 2px; height: 8px; background-color: #6c757d; margin: 0 auto;"></div>
                                                     <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #6c757d; margin: 0 auto;"></div>
                                                 </div>
+                                                <!-- Flow arrow (always visible) -->
+                                                <div class="text-center my-1" style="margin-left: 30px;">
+                                                    <div style="width: 2px; height: 12px; background-color: #dee2e6; margin: 0 auto;"></div>
+                                                    <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #dee2e6; margin: 0 auto;"></div>
+                                                </div>
                                             }
                                         }
                                         
-                                        <!-- Add Step at end of operation -->
-                                        <div class="text-center mt-2 pt-2 border-top">
+                                        <!-- Add Step at end of operation (visible only in edit mode) -->
+                                        <div class="text-center mt-2 pt-2 border-top operation-edit-item" data-operation="@groupNum" style="display: none;">
                                             <button type="button" class="btn btn-sm btn-outline-success" style="font-size: 11px;"
                                                     onclick="showAddStepModal(@groupNum, null)">
                                                 ➕ Add Step to This Operation
@@ -1425,6 +1465,271 @@
                 content.style.display = 'none';
                 icon.textContent = '▶';
             }
+        }
+        
+        // ==========================================
+        // VIEW/EDIT MODE FUNCTIONALITY
+        // ==========================================
+        
+        // Toggle operation edit mode
+        function toggleOperationEditMode(operationId) {
+            const operationCard = document.querySelector(`[data-operation-id="${operationId}"]`);
+            if (!operationCard) return;
+            
+            const isEditMode = operationCard.dataset.editMode === 'true';
+            const editControls = document.getElementById(`operation-edit-controls-${operationId}`);
+            const editBtn = document.getElementById(`operation-edit-btn-${operationId}`);
+            const editItems = document.querySelectorAll(`.operation-edit-item[data-operation="${operationId}"]`);
+            
+            if (isEditMode) {
+                // Switch to VIEW mode
+                operationCard.dataset.editMode = 'false';
+                editControls.style.display = 'none';
+                editBtn.classList.remove('btn-primary');
+                editBtn.classList.add('btn-outline-secondary');
+                editBtn.title = 'Edit Operation';
+                editItems.forEach(item => item.style.display = 'none');
+                operationCard.classList.remove('border-primary', 'edit-mode-active');
+                
+                // Reset all step edit modes within this operation
+                operationCard.querySelectorAll('[data-step-id]').forEach(step => {
+                    toggleStepEditMode(operationId, step.dataset.stepId, true); // Force to view mode
+                });
+            } else {
+                // Switch to EDIT mode
+                operationCard.dataset.editMode = 'true';
+                editControls.style.display = 'inline-block';
+                editBtn.classList.remove('btn-outline-secondary');
+                editBtn.classList.add('btn-primary');
+                editBtn.title = 'Exit Edit Mode';
+                editItems.forEach(item => item.style.display = 'block');
+                operationCard.classList.add('edit-mode-active');
+            }
+        }
+        
+        // Toggle step edit mode
+        function toggleStepEditMode(operationId, stepId, forceView = false) {
+            const stepCard = document.querySelector(`[data-step-id="${stepId}"][data-operation-id="${operationId}"]`);
+            if (!stepCard) return;
+            
+            const viewMode = document.getElementById(`step-view-${operationId}-${stepId}`);
+            const editMode = document.getElementById(`step-edit-${operationId}-${stepId}`);
+            
+            if (!viewMode || !editMode) return;
+            
+            const isEditMode = stepCard.dataset.editMode === 'true';
+            
+            if (forceView || isEditMode) {
+                // Switch to VIEW mode
+                stepCard.dataset.editMode = 'false';
+                viewMode.style.display = 'block';
+                editMode.style.display = 'none';
+                stepCard.classList.remove('border-primary', 'edit-mode-active');
+            } else {
+                // Switch to EDIT mode
+                stepCard.dataset.editMode = 'true';
+                viewMode.style.display = 'none';
+                editMode.style.display = 'block';
+                stepCard.classList.add('border-primary', 'edit-mode-active');
+            }
+        }
+        
+        // Delete operations
+        function confirmDeleteOperation(operationId, operationName) {
+            if (confirm(`Delete Operation "${operationName}"?\n\nThis will remove all steps within this operation. This action cannot be undone.`)) {
+                deleteOperation(operationId);
+            }
+        }
+        
+        function deleteOperation(operationId) {
+            const operationCard = document.querySelector(`[data-operation-id="${operationId}"]`);
+            if (operationCard) {
+                // Animate removal
+                operationCard.style.transition = 'opacity 0.3s, transform 0.3s';
+                operationCard.style.opacity = '0';
+                operationCard.style.transform = 'translateX(-20px)';
+                
+                setTimeout(() => {
+                    operationCard.remove();
+                    // In real implementation, POST to server
+                    console.log(`Deleted operation ${operationId}`);
+                }, 300);
+            }
+        }
+        
+        // Delete steps
+        function confirmDeleteStep(operationId, stepId, stepName) {
+            if (confirm(`Delete Step "${stepName}"?\n\nThis action cannot be undone.`)) {
+                deleteStep(operationId, stepId);
+            }
+        }
+        
+        function deleteStep(operationId, stepId) {
+            const stepCard = document.querySelector(`[data-step-id="${stepId}"][data-operation-id="${operationId}"]`);
+            if (stepCard) {
+                // Animate removal
+                stepCard.style.transition = 'opacity 0.3s, transform 0.3s';
+                stepCard.style.opacity = '0';
+                stepCard.style.transform = 'translateX(-20px)';
+                
+                setTimeout(() => {
+                    // Also remove flow arrow after step if exists
+                    const nextSibling = stepCard.nextElementSibling;
+                    if (nextSibling && nextSibling.classList.contains('text-center')) {
+                        nextSibling.remove();
+                    }
+                    stepCard.remove();
+                    
+                    // Update step count badge
+                    updateStepCount(operationId);
+                    
+                    // In real implementation, POST to server
+                    console.log(`Deleted step ${stepId} from operation ${operationId}`);
+                }, 300);
+            }
+        }
+        
+        function updateStepCount(operationId) {
+            const operationCard = document.querySelector(`[data-operation-id="${operationId}"]`);
+            if (operationCard) {
+                const stepCount = operationCard.querySelectorAll('[data-step-id]').length;
+                const badge = operationCard.querySelector('.badge.bg-light');
+                if (badge && badge.textContent.includes('step')) {
+                    badge.textContent = `${stepCount} step(s)`;
+                }
+            }
+        }
+        
+        // Step editing functions
+        function addConditionalToStep(operationId, stepId) {
+            const stepCard = document.querySelector(`[data-step-id="${stepId}"][data-operation-id="${operationId}"]`);
+            const editMode = stepCard.querySelector('.step-edit-mode');
+            
+            // Check if conditional already exists
+            if (editMode.querySelector('.step-conditional')) {
+                alert('This step already has a conditional. Remove it first to add a new one.');
+                return;
+            }
+            
+            const conditionalHtml = `
+                <div class="step-conditional alert alert-info mt-2 mb-2">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <strong>◆ Conditional Branch</strong>
+                            <div class="row g-2 mt-2">
+                                <div class="col-md-4">
+                                    <label class="form-label small">If:</label>
+                                    <select class="form-select form-select-sm">
+                                        <option>lastResponse</option>
+                                        <option>statusCode</option>
+                                        <option>paramValue</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">&nbsp;</label>
+                                    <select class="form-select form-select-sm">
+                                        <option>==</option>
+                                        <option>!=</option>
+                                        <option>></option>
+                                        <option><</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Value:</label>
+                                    <input type="text" class="form-control form-control-sm" value="0x00">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Then:</label>
+                                    <select class="form-select form-select-sm">
+                                        <option>Continue</option>
+                                        <option>Skip to Step...</option>
+                                        <option>Fail</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="this.closest('.step-conditional').remove()">×</button>
+                    </div>
+                </div>
+            `;
+            
+            // Insert before the action buttons
+            const actionDiv = editMode.querySelector('.mt-3.pt-2.border-top');
+            actionDiv.insertAdjacentHTML('beforebegin', conditionalHtml);
+        }
+        
+        function addBranchToStep(operationId, stepId) {
+            const stepCard = document.querySelector(`[data-step-id="${stepId}"][data-operation-id="${operationId}"]`);
+            const editMode = stepCard.querySelector('.step-edit-mode');
+            
+            const branchHtml = `
+                <div class="step-branch alert alert-warning mt-2 mb-2">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <strong>🔀 Decision Branch</strong>
+                            <div class="row g-2 mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small">✓ On Success:</label>
+                                    <select class="form-select form-select-sm">
+                                        <option>Continue to next step</option>
+                                        <option>Skip to Operation...</option>
+                                        <option>Complete workflow</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small">✗ On Failure:</label>
+                                    <select class="form-select form-select-sm">
+                                        <option>Retry (max 3)</option>
+                                        <option>Skip to Rollback</option>
+                                        <option>Fail workflow</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="this.closest('.step-branch').remove()">×</button>
+                    </div>
+                </div>
+            `;
+            
+            // Insert before the action buttons
+            const actionDiv = editMode.querySelector('.mt-3.pt-2.border-top');
+            actionDiv.insertAdjacentHTML('beforebegin', branchHtml);
+        }
+        
+        function moveStep(operationId, stepId, direction) {
+            const stepCard = document.querySelector(`[data-step-id="${stepId}"][data-operation-id="${operationId}"]`);
+            if (!stepCard) return;
+            
+            const parent = stepCard.parentElement;
+            const allSteps = Array.from(parent.querySelectorAll('[data-step-id]'));
+            const currentIndex = allSteps.indexOf(stepCard);
+            
+            if (direction === 'up' && currentIndex > 0) {
+                const prevStep = allSteps[currentIndex - 1];
+                parent.insertBefore(stepCard, prevStep);
+                animateMove(stepCard, 'up');
+            } else if (direction === 'down' && currentIndex < allSteps.length - 1) {
+                const nextStep = allSteps[currentIndex + 1];
+                parent.insertBefore(nextStep, stepCard);
+                animateMove(stepCard, 'down');
+            }
+            
+            // In real implementation, POST to server to persist order
+            console.log(`Moved step ${stepId} ${direction} in operation ${operationId}`);
+        }
+        
+        function animateMove(element, direction) {
+            element.style.transition = 'transform 0.2s';
+            element.style.transform = direction === 'up' ? 'translateY(-10px)' : 'translateY(10px)';
+            setTimeout(() => {
+                element.style.transform = 'translateY(0)';
+            }, 200);
+        }
+        
+        function saveStepChanges(operationId, stepId) {
+            // In real implementation, POST changes to server
+            console.log(`Saving changes to step ${stepId} in operation ${operationId}`);
+            toggleStepEditMode(operationId, stepId);
         }
         
         // ==========================================
