@@ -1,0 +1,199 @@
+@model List<WebApp.Models.ParameterValue>
+
+@{
+    // Group parameters by category (extract from parameter name)
+    var paramsByCategory = Model
+        .GroupBy(p => {
+            var name = p.ParameterName;
+            if (name.Contains("Directionality")) return "Directionality";
+            if (name.Contains("Noise")) return "Noise Reduction";
+            if (name.Contains("Tinnitus")) return "Tinnitus";
+            if (name.Contains("Feedback")) return "Feedback";
+            if (name.Contains("Compression") || name.Contains("Ocl")) return "Compression";
+            if (name.Contains("Stream") || name.Contains("Ble")) return "Streaming";
+            if (name.Contains("Volume") || name.Contains("Gain")) return "Volume/Gain";
+            return "Other";
+        })
+        .OrderBy(g => g.Key)
+        .ToList();
+}
+
+@foreach (var category in paramsByCategory)
+{
+    <div class="parameter-category mb-4">
+        <div class="d-flex align-items-center mb-3">
+            <h6 class="mb-0 me-2">
+                <i class="bi bi-folder2-open text-primary"></i> @category.Key
+            </h6>
+            <span class="badge bg-secondary">@category.Count() parameters</span>
+            <button class="btn btn-sm btn-outline-secondary ms-auto" type="button" 
+                    data-bs-toggle="collapse" data-bs-target="#collapse-@category.Key.Replace(" ", "")" 
+                    aria-expanded="true">
+                <i class="bi bi-chevron-down"></i>
+            </button>
+        </div>
+
+        <div class="collapse show" id="collapse-@category.Key.Replace(" ", "")">
+            <div class="row g-3">
+                @foreach (var param in category.OrderBy(p => p.ParameterName))
+                {
+                    // Extract parameter name without prefix
+                    var displayName = param.ParameterName.Split('.').LastOrDefault() ?? param.ParameterName;
+                    displayName = System.Text.RegularExpressions.Regex.Replace(displayName, "([a-z])([A-Z])", "$1 $2");
+                    
+                    // Mock min/max values based on parameter type
+                    int minValue = 0;
+                    int maxValue = 100;
+                    string unit = "";
+                    
+                    if (displayName.Contains("Level") || displayName.Contains("Strength")) { maxValue = 10; }
+                    else if (displayName.Contains("Gain") || displayName.Contains("Volume")) { maxValue = 60; unit = "dB"; }
+                    else if (displayName.Contains("Frequency")) { maxValue = 8000; unit = "Hz"; }
+                    else if (displayName.Contains("Time") || displayName.Contains("Delay")) { maxValue = 1000; unit = "ms"; }
+                    else if (displayName.Contains("Threshold")) { maxValue = 90; unit = "dB"; }
+                    else if (displayName.Contains("Ratio")) { maxValue = 20; }
+                    else if (displayName.Contains("Channel")) { maxValue = 16; }
+
+                    var currentValue = param.Value;
+                    var percentage = maxValue > 0 ? ((currentValue - minValue) / (double)(maxValue - minValue)) * 100 : 0;
+
+                    <div class="col-md-6 col-xl-4">
+                        <div class="card parameter-card h-100">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <label class="form-label mb-0 small">
+                                        <strong>@displayName</strong>
+                                        @if (!string.IsNullOrEmpty(unit))
+                                        {
+                                            <span class="text-muted">(@unit)</span>
+                                        }
+                                    </label>
+                                    @if (!string.IsNullOrEmpty(param.Notes))
+                                    {
+                                        <i class="bi bi-info-circle text-info" data-bs-toggle="tooltip" 
+                                           title="@param.Notes"></i>
+                                    }
+                                </div>
+
+                                <!-- Dual Input: Decimal and Hex -->
+                                <div class="row g-2 mb-2">
+                                    <div class="col-7">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">DEC</span>
+                                            <input type="number" 
+                                                   class="form-control dec-input param-value-input" 
+                                                   value="@currentValue"
+                                                   min="@minValue"
+                                                   max="@maxValue"
+                                                   data-parameter-id="@param.Id"
+                                                   oninput="syncDecToHex(this); validateRange(this);" />
+                                        </div>
+                                    </div>
+                                    <div class="col-5">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">HEX</span>
+                                            <input type="text" 
+                                                   class="form-control hex-input font-monospace" 
+                                                   value="0x@(currentValue.ToString("X4"))"
+                                                   oninput="syncHexToDec(this);" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Range Indicator -->
+                                <div class="mb-2">
+                                    <div class="progress" style="height: 4px;">
+                                        <div class="progress-bar range-indicator bg-success" 
+                                             role="progressbar" 
+                                             style="width: @percentage%"
+                                             aria-valuenow="@currentValue" 
+                                             aria-valuemin="@minValue" 
+                                             aria-valuemax="@maxValue"></div>
+                                    </div>
+                                    <small class="text-muted">Range: @minValue - @maxValue @unit</small>
+                                </div>
+
+                                <!-- Quick Presets (if applicable) -->
+                                @if (displayName.Contains("Level") || displayName.Contains("Strength"))
+                                {
+                                    <div class="btn-group btn-group-sm w-100" role="group">
+                                        <button type="button" class="btn btn-outline-secondary" 
+                                                onclick="setParamValue(this, @param.Id, 0)">Off</button>
+                                        <button type="button" class="btn btn-outline-secondary" 
+                                                onclick="setParamValue(this, @param.Id, @(maxValue/2))">Mid</button>
+                                        <button type="button" class="btn btn-outline-secondary" 
+                                                onclick="setParamValue(this, @param.Id, @maxValue)">Max</button>
+                                    </div>
+                                }
+
+                                @if (displayName.Contains("Mode") || displayName.Contains("Type"))
+                                {
+                                    <select class="form-select form-select-sm param-value-input" 
+                                            data-parameter-id="@param.Id">
+                                        <option value="0" selected="@(currentValue == 0)">Off</option>
+                                        <option value="1" selected="@(currentValue == 1)">Automatic</option>
+                                        <option value="2" selected="@(currentValue == 2)">Manual</option>
+                                        <option value="3" selected="@(currentValue == 3)">Adaptive</option>
+                                    </select>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> No parameters configured for this feature yet.
+    </div>
+}
+
+<script>
+    function setParamValue(button, parameterId, value) {
+        const card = button.closest('.parameter-card');
+        const decInput = card.querySelector('.dec-input');
+        if (decInput) {
+            decInput.value = value;
+            syncDecToHex(decInput);
+            validateRange(decInput);
+        }
+    }
+
+    // Initialize tooltips
+    document.addEventListener('DOMContentLoaded', function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
+
+<style>
+    .parameter-card {
+        transition: all 0.2s;
+        border: 1px solid #dee2e6;
+    }
+    
+    .parameter-card:hover {
+        box-shadow: 0 0.125rem 0.5rem rgba(0,0,0,0.1);
+        border-color: #0d6efd;
+    }
+    
+    .parameter-category {
+        border-left: 3px solid #0d6efd;
+        padding-left: 1rem;
+    }
+    
+    .hex-input {
+        font-size: 0.85rem;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+</style>

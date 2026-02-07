@@ -1,0 +1,587 @@
+@page
+@model WebApp.Pages.Collections.CreateModel
+@{
+    ViewData["Title"] = "Create Feature Collection";
+}
+
+<h2><i class="bi bi-plus-circle"></i> Create Feature Collection</h2>
+
+<hr />
+
+<!-- Wizard Progress -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-3">
+                <div class="wizard-step active" data-step="1">
+                    <div class="step-circle bg-primary text-white mb-2">
+                        <i class="bi bi-info-circle"></i>
+                    </div>
+                    <small class="fw-bold">Basic Info</small>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="wizard-step" data-step="2">
+                    <div class="step-circle bg-light text-muted mb-2">
+                        <i class="bi bi-cpu"></i>
+                    </div>
+                    <small>Firmware Versions</small>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="wizard-step" data-step="3">
+                    <div class="step-circle bg-light text-muted mb-2">
+                        <i class="bi bi-layers"></i>
+                    </div>
+                    <small>Select Features</small>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="wizard-step" data-step="4">
+                    <div class="step-circle bg-light text-muted mb-2">
+                        <i class="bi bi-share"></i>
+                    </div>
+                    <small>Sharing & Review</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="post" id="wizardForm">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    
+    <!-- Step 1: Basic Info -->
+    <div class="wizard-content" data-step="1">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-info-circle"></i> Step 1: Basic Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label asp-for="Collection.Name" class="form-label">Collection Name</label>
+                            <input asp-for="Collection.Name" class="form-control" placeholder="e.g., Phonak Q1 2025 Features" />
+                            <span asp-validation-for="Collection.Name" class="text-danger"></span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label asp-for="Collection.Description" class="form-label">Description</label>
+                            <textarea asp-for="Collection.Description" class="form-control" rows="4" placeholder="What is this collection for?"></textarea>
+                            <span asp-validation-for="Collection.Description" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Collection.NpiProgramId" class="form-label">NPI Program</label>
+                            <select asp-for="Collection.NpiProgramId" asp-items="Model.NpiProgramOptions" class="form-select" id="npiSelect" required>
+                                <option value="">-- Select Program --</option>
+                            </select>
+                            <small class="text-muted">Select the target NPI program and hardware generation</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert alert-info">
+                            <i class="bi bi-lightbulb"></i> <strong>Quick Tip</strong>
+                            <p class="mb-0 mt-2">Collections group related features for a specific NPI program. Choose a descriptive name and select the program first to see compatible firmware versions.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: Firmware Versions -->
+    <div class="wizard-content" data-step="2" style="display:none;">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-cpu"></i> Step 2: Select Firmware Versions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="btn-group mb-3" role="group">
+                            <input type="radio" class="btn-check" name="stageFilter" id="filterAll" value="" checked>
+                            <label class="btn btn-outline-secondary" for="filterAll">All Stages</label>
+                            
+                            <input type="radio" class="btn-check" name="stageFilter" id="filterT3" value="T3">
+                            <label class="btn btn-outline-success" for="filterT3"><i class="bi bi-check-circle"></i> T3 Released</label>
+                            
+                            <input type="radio" class="btn-check" name="stageFilter" id="filterT2" value="T2">
+                            <label class="btn btn-outline-info" for="filterT2"><i class="bi bi-shield-check"></i> T2 Beta</label>
+                            
+                            <input type="radio" class="btn-check" name="stageFilter" id="filterT1" value="T1">
+                            <label class="btn btn-outline-warning" for="filterT1"><i class="bi bi-exclamation-triangle"></i> T1 Alpha</label>
+                            
+                            <input type="radio" class="btn-check" name="stageFilter" id="filterT0" value="T0">
+                            <label class="btn btn-outline-danger" for="filterT0"><i class="bi bi-flask"></i> T0 Test</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label asp-for="Collection.RequiredLpiVersionId" class="form-label">Target LPI Version</label>
+                            <select asp-for="Collection.RequiredLpiVersionId" asp-items="Model.LpiVersionOptions" class="form-select" id="lpiSelect" required>
+                                <option value="">-- Select LPI Version --</option>
+                            </select>
+                            <small class="text-muted">Low-level Parameter Interface version</small>
+                            <div id="lpiVersionInfo" class="mt-2"></div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label asp-for="Collection.RequiredPiccoloVersionId" class="form-label">Target PICCOLO Version</label>
+                            <select asp-for="Collection.RequiredPiccoloVersionId" asp-items="Model.PiccoloVersionOptions" class="form-select" id="piccoloSelect" required>
+                                <option value="">-- Select PICCOLO Version --</option>
+                            </select>
+                            <small class="text-muted">PICCOLO Protocol version</small>
+                            <div id="piccoloVersionInfo" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i> <strong>Version Compatibility</strong>
+                    <p class="mb-0">Ensure the selected firmware versions are compatible with your target hardware. Features in the next step will be filtered based on your selection.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 3: Select Features -->
+    <div class="wizard-content" data-step="3" style="display:none;">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-layers"></i> Step 3: Select Features</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" id="featureSearch" placeholder="Search features...">
+                    </div>
+                    <div class="col-md-6">
+                        <select class="form-select" id="featureCategoryFilter">
+                            <option value="">All Categories</option>
+                            <option value="Signal Processing">Signal Processing</option>
+                            <option value="Firmware">Firmware</option>
+                            <option value="Streaming">Streaming</option>
+                            <option value="User Experience">User Experience</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="featureList" class="list-group">
+                    <!-- Features will be loaded here via JavaScript -->
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-arrow-left-circle"></i> Select firmware versions in Step 2 to see compatible features
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <span class="badge bg-primary" id="selectedCount">0 features selected</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 4: Sharing & Review -->
+    <div class="wizard-content" data-step="4" style="display:none;">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-share"></i> Step 4: Sharing & Review</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label asp-for="Collection.Visibility" class="form-label">Visibility</label>
+                            <select asp-for="Collection.Visibility" class="form-select" id="visibilitySelect">
+                                <option value="Private">🔒 Private - Only visible to you</option>
+                                <option value="Team">👥 Team - Share with specific team members</option>
+                                <option value="Public">🌐 Public - Visible to all</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3" id="sharedWithContainer" style="display:none;">
+                            <label class="form-label">Share With</label>
+                            <input type="text" class="form-control mb-2" placeholder="Enter team member names..." id="sharedWithInput" />
+                            <div id="sharedWithTags"></div>
+                            <small class="text-muted">Comma-separated list of team members</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Tags (Optional)</label>
+                            <input type="text" class="form-control" id="tagsInput" placeholder="test, production, phonak" />
+                            <small class="text-muted">Add tags to organize your collection</small>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="lockCollection" asp-for="Collection.IsLocked">
+                            <label class="form-check-label" asp-for="Collection.IsLocked">
+                                <i class="bi bi-lock"></i> Lock collection (prevent edits)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-header">
+                                <strong>Summary</strong>
+                            </div>
+                            <div class="card-body">
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-5">Collection:</dt>
+                                    <dd class="col-sm-7" id="summaryName">-</dd>
+                                    
+                                    <dt class="col-sm-5">Program:</dt>
+                                    <dd class="col-sm-7" id="summaryProgram">-</dd>
+                                    
+                                    <dt class="col-sm-5">LPI Version:</dt>
+                                    <dd class="col-sm-7" id="summaryLpi">-</dd>
+                                    
+                                    <dt class="col-sm-5">PICCOLO Version:</dt>
+                                    <dd class="col-sm-7" id="summaryPiccolo">-</dd>
+                                    
+                                    <dt class="col-sm-5">Features:</dt>
+                                    <dd class="col-sm-7" id="summaryFeatures">0</dd>
+                                    
+                                    <dt class="col-sm-5">Visibility:</dt>
+                                    <dd class="col-sm-7" id="summaryVisibility">Private</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="card mt-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <button type="button" class="btn btn-secondary" id="prevBtn" style="display:none;">
+                        <i class="bi bi-arrow-left"></i> Previous
+                    </button>
+                </div>
+                <div>
+                    <a asp-page="Index" class="btn btn-outline-secondary me-2">Cancel</a>
+                    <button type="button" class="btn btn-primary" id="nextBtn">
+                        Next <i class="bi bi-arrow-right"></i>
+                    </button>
+                    <button type="submit" class="btn btn-success" id="submitBtn" style="display:none;">
+                        <i class="bi bi-check-circle"></i> Create Collection
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        let currentStep = 1;
+        const maxSteps = 4;
+        let selectedFeatures = [];
+
+        $(document).ready(function() {
+            updateWizardUI();
+
+            // Step navigation
+            $('#nextBtn').click(function() {
+                if (validateStep(currentStep)) {
+                    currentStep++;
+                    if (currentStep === 3) {
+                        loadFeatures();
+                    }
+                    if (currentStep === 4) {
+                        updateSummary();
+                    }
+                    updateWizardUI();
+                }
+            });
+
+            $('#prevBtn').click(function() {
+                currentStep--;
+                updateWizardUI();
+            });
+
+            // NPI Program change - load firmware versions
+            $('#npiSelect').change(function() {
+                var programId = $(this).val();
+                var programName = $('#npiSelect option:selected').text();
+                if (programId) {
+                    $.getJSON('?handler=Versions', { programId: programId }, function(data) {
+                        populateVersionSelect('#lpiSelect', data.lpi, 'LPI');
+                        populateVersionSelect('#piccoloSelect', data.piccolo, 'PICCOLO');
+                    });
+                } else {
+                    $('#lpiSelect').empty().append('<option value="">-- Select LPI Version --</option>');
+                    $('#piccoloSelect').empty().append('<option value="">-- Select PICCOLO Version --</option>');
+                }
+            });
+
+            // Stage filter for firmware versions
+            $('input[name="stageFilter"]').change(function() {
+                filterVersionsByStage($(this).val());
+            });
+
+            // Version selection - show info
+            $('#lpiSelect').change(function() {
+                showVersionInfo('lpi', $(this));
+            });
+
+            $('#piccoloSelect').change(function() {
+                showVersionInfo('piccolo', $(this));
+            });
+
+            // Visibility change - show/hide shared with
+            $('#visibilitySelect').change(function() {
+                if ($(this).val() === 'Team') {
+                    $('#sharedWithContainer').show();
+                } else {
+                    $('#sharedWithContainer').hide();
+                }
+                updateSummary();
+            });
+
+            // Feature search
+            $('#featureSearch').on('keyup', function() {
+                filterFeatures();
+            });
+
+            $('#featureCategoryFilter').change(function() {
+                filterFeatures();
+            });
+
+            // Form fields change - update summary
+            $('#Collection_Name, #Collection_NpiProgramId, #tagsInput').on('change keyup', function() {
+                updateSummary();
+            });
+        });
+
+        function updateWizardUI() {
+            // Hide all steps
+            $('.wizard-content').hide();
+            $('[data-step="' + currentStep + '"]').show();
+
+            // Update progress indicators
+            $('.wizard-step').each(function() {
+                const stepNum = parseInt($(this).data('step'));
+                if (stepNum < currentStep) {
+                    $(this).removeClass('active').addClass('completed');
+                    $(this).find('.step-circle').removeClass('bg-light bg-primary text-white text-muted')
+                        .addClass('bg-success text-white');
+                } else if (stepNum === currentStep) {
+                    $(this).addClass('active').removeClass('completed');
+                    $(this).find('.step-circle').removeClass('bg-light bg-success text-muted')
+                        .addClass('bg-primary text-white');
+                    $(this).find('small').addClass('fw-bold');
+                } else {
+                    $(this).removeClass('active completed');
+                    $(this).find('.step-circle').removeClass('bg-success bg-primary text-white')
+                        .addClass('bg-light text-muted');
+                    $(this).find('small').removeClass('fw-bold');
+                }
+            });
+
+            // Update buttons
+            $('#prevBtn').toggle(currentStep > 1);
+            $('#nextBtn').toggle(currentStep < maxSteps);
+            $('#submitBtn').toggle(currentStep === maxSteps);
+        }
+
+        function validateStep(step) {
+            if (step === 1) {
+                const name = $('#Collection_Name').val();
+                const program = $('#Collection_NpiProgramId').val();
+                if (!name || !program) {
+                    alert('Please enter a collection name and select an NPI program.');
+                    return false;
+                }
+            } else if (step === 2) {
+                const lpi = $('#Collection_RequiredLpiVersionId').val();
+                const piccolo = $('#Collection_RequiredPiccoloVersionId').val();
+                if (!lpi || !piccolo) {
+                    alert('Please select both LPI and PICCOLO firmware versions.');
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function populateVersionSelect(selectId, versions, type) {
+            const select = $(selectId);
+            select.empty().append('<option value="">-- Select ' + type + ' Version --</option>');
+            
+            $.each(versions, function(i, item) {
+                const stage = item.text.match(/\(([^)]+)\)/)?.[1] || 'T3';
+                const stageIcon = getStageIcon(stage);
+                const stageClass = getStageBadgeClass(stage);
+                select.append($('<option>')
+                    .val(item.value)
+                    .text(item.text)
+                    .data('stage', stage)
+                    .attr('class', stageClass));
+            });
+        }
+
+        function filterVersionsByStage(stage) {
+            $('#lpiSelect option, #piccoloSelect option').each(function() {
+                if ($(this).val() === '') {
+                    $(this).show();
+                    return;
+                }
+                
+                const optionStage = $(this).data('stage');
+                if (!stage || optionStage === stage) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        }
+
+        function showVersionInfo(type, select) {
+            const selectedText = select.find('option:selected').text();
+            const stage = select.find('option:selected').data('stage') || 'T3';
+            const icon = getStageIcon(stage);
+            const badgeClass = getStageBadgeClass(stage);
+            
+            const infoHtml = `<span class="badge ${badgeClass}">${icon} ${stage}</span>`;
+            $('#' + type + 'VersionInfo').html(infoHtml);
+        }
+
+        function getStageIcon(stage) {
+            const icons = {
+                'T0_Test': '<i class="bi bi-flask"></i>',
+                'T1_Alpha': '<i class="bi bi-exclamation-triangle"></i>',
+                'T2_Beta': '<i class="bi bi-shield-check"></i>',
+                'T3_Released': '<i class="bi bi-check-circle"></i>'
+            };
+            return icons[stage] || icons['T3_Released'];
+        }
+
+        function getStageBadgeClass(stage) {
+            const classes = {
+                'T0_Test': 'bg-danger',
+                'T1_Alpha': 'bg-warning text-dark',
+                'T2_Beta': 'bg-info',
+                'T3_Released': 'bg-success'
+            };
+            return classes[stage] || 'bg-secondary';
+        }
+
+        function loadFeatures() {
+            const lpiVersionId = $('#Collection_RequiredLpiVersionId').val();
+            const piccoloVersionId = $('#Collection_RequiredPiccoloVersionId').val();
+            
+            // Mock features - in real implementation, fetch from server
+            const features = @Html.Raw(Json.Serialize(Model.AvailableFeatures ?? new List<Feature>()));
+            
+            let html = '';
+            features.forEach(function(feature) {
+                const isSelected = selectedFeatures.includes(feature.id);
+                html += `
+                    <div class="list-group-item list-group-item-action feature-item" data-feature-id="${feature.id}" data-category="${feature.category}">
+                        <div class="d-flex w-100 justify-content-between align-items-start">
+                            <div class="form-check">
+                                <input class="form-check-input feature-checkbox" type="checkbox" value="${feature.id}" 
+                                    ${isSelected ? 'checked' : ''} id="feature_${feature.id}">
+                                <label class="form-check-label" for="feature_${feature.id}">
+                                    <strong>${feature.name}</strong>
+                                    <br><small class="text-muted">${feature.description || ''}</small>
+                                </label>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-secondary">${feature.category}</span>
+                                ${feature.isComposite ? '<span class="badge bg-info"><i class="bi bi-diagram-3"></i> Composite</span>' : ''}
+                                <br><small class="text-muted">${feature.requiredLpiParams || 0} LPI params</small>
+                                <br><small class="text-muted">${feature.requiredPiccoloCommands || 0} PICCOLO cmds</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            $('#featureList').html(html || '<div class="text-center text-muted py-5">No compatible features found</div>');
+            
+            // Attach checkbox handlers
+            $('.feature-checkbox').change(function() {
+                const featureId = parseInt($(this).val());
+                if ($(this).is(':checked')) {
+                    if (!selectedFeatures.includes(featureId)) {
+                        selectedFeatures.push(featureId);
+                    }
+                } else {
+                    selectedFeatures = selectedFeatures.filter(id => id !== featureId);
+                }
+                updateSelectedCount();
+            });
+            
+            updateSelectedCount();
+        }
+
+        function filterFeatures() {
+            const searchTerm = $('#featureSearch').val().toLowerCase();
+            const category = $('#featureCategoryFilter').val();
+            
+            $('.feature-item').each(function() {
+                const text = $(this).text().toLowerCase();
+                const itemCategory = $(this).data('category');
+                
+                const matchesSearch = searchTerm === '' || text.includes(searchTerm);
+                const matchesCategory = category === '' || itemCategory === category;
+                
+                $(this).toggle(matchesSearch && matchesCategory);
+            });
+        }
+
+        function updateSelectedCount() {
+            $('#selectedCount').text(selectedFeatures.length + ' feature(s) selected');
+        }
+
+        function updateSummary() {
+            $('#summaryName').text($('#Collection_Name').val() || '-');
+            $('#summaryProgram').text($('#npiSelect option:selected').text() || '-');
+            $('#summaryLpi').text($('#lpiSelect option:selected').text() || '-');
+            $('#summaryPiccolo').text($('#piccoloSelect option:selected').text() || '-');
+            $('#summaryFeatures').text(selectedFeatures.length);
+            $('#summaryVisibility').text($('#visibilitySelect option:selected').text() || 'Private');
+        }
+    </script>
+    <style>
+        .wizard-step {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .step-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            transition: all 0.3s;
+        }
+        
+        .wizard-step.active .step-circle {
+            transform: scale(1.1);
+        }
+        
+        .feature-item {
+            cursor: pointer;
+        }
+        
+        .feature-item:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
+}

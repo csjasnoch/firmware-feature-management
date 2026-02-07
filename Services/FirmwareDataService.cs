@@ -1,22 +1,55 @@
+using Microsoft.EntityFrameworkCore;
+using WebApp.Data;
 using WebApp.Models;
 
 namespace WebApp.Services;
 
-public class FirmwareDataService
+public partial class FirmwareDataService
 {
-    private readonly List<NpiProgram> _npiPrograms;
-    private readonly List<FirmwareVersion> _lpiVersions;
-    private readonly List<FirmwareVersion> _piccoloVersions;
-    private readonly List<Feature> _features;
-    private readonly List<FeatureCollection> _collections;
+    private readonly ApplicationDbContext _context;
 
-    public FirmwareDataService()
+    public FirmwareDataService(ApplicationDbContext context)
     {
-        _npiPrograms = InitializeNpiPrograms();
-        _lpiVersions = InitializeLpiVersions();
-        _piccoloVersions = InitializePiccoloVersions();
-        _features = InitializeFeatures();
-        _collections = InitializeCollections();
+        _context = context;
+    }
+
+    public async Task SeedDataAsync()
+    {
+        // Only seed if database is empty
+        if (await _context.NpiPrograms.AnyAsync())
+        {
+            return;
+        }
+
+        var npiPrograms = InitializeNpiPrograms();
+        await _context.NpiPrograms.AddRangeAsync(npiPrograms);
+        await _context.SaveChangesAsync();
+
+        // Create shared parameter and command definitions first
+        var allParameters = new List<ParameterDefinition>();
+        var allCommands = new List<CommandDefinition>();
+        
+        var lpiVersions = InitializeLpiVersionsWithSharedParameters(npiPrograms, allParameters);
+        var piccoloVersions = InitializePiccoloVersionsWithSharedCommands(npiPrograms, allCommands);
+        
+        // Add unique parameters and commands to context
+        await _context.ParameterDefinitions.AddRangeAsync(allParameters);
+        await _context.CommandDefinitions.AddRangeAsync(allCommands);
+        await _context.SaveChangesAsync();
+        
+        // Now add firmware versions
+        await _context.FirmwareVersions.AddRangeAsync(lpiVersions);
+        await _context.FirmwareVersions.AddRangeAsync(piccoloVersions);
+        await _context.SaveChangesAsync();
+
+        // Use enhanced features based on actual PICCOLO firmware data
+        var features = InitializeFeaturesEnhanced();
+        await _context.Features.AddRangeAsync(features);
+        await _context.SaveChangesAsync();
+
+        var collections = InitializeCollections(npiPrograms, lpiVersions, piccoloVersions, features);
+        await _context.FeatureCollections.AddRangeAsync(collections);
+        await _context.SaveChangesAsync();
     }
 
     private List<NpiProgram> InitializeNpiPrograms()
@@ -81,167 +114,216 @@ public class FirmwareDataService
         };
     }
 
-    private List<FirmwareVersion> InitializeLpiVersions()
+    private List<FirmwareVersion> InitializeLpiVersions(List<NpiProgram> npiPrograms)
     {
-        var edina = _npiPrograms.First(p => p.Name == "Edina");
-        var eagan = _npiPrograms.First(p => p.Name == "Eagan");
-        var elko = _npiPrograms.First(p => p.Name == "Elko");
-
-        return new List<FirmwareVersion>
-        {
-            // Edina (Legacy)
-            new FirmwareVersion
-            {
-                Id = Guid.NewGuid(),
-                NpiProgramId = edina.Id,
-                NpiProgram = edina,
-                Version = "2.8.0",
-                Stage = FirmwareReleaseStage.T3_Released,
-                ReleasedAt = new DateTime(2024, 11, 1),
-                ReleasedBy = "Legacy Team",
-                ChangeLog = new List<string> { "Final Edina release" },
-                Parameters = CreateSampleParameters(20)
-            },
-            // Eagan
-            new FirmwareVersion
-            {
-                Id = Guid.NewGuid(),
-                NpiProgramId = eagan.Id,
-                NpiProgram = eagan,
-                Version = "3.1.0",
-                Stage = FirmwareReleaseStage.T3_Released,
-                ReleasedAt = new DateTime(2025, 12, 1),
-                ReleasedBy = "Firmware Team",
-                ChangeLog = new List<string> { "Eagan initial release", "24 new parameters" },
-                Parameters = CreateSampleParameters(24)
-            },
-            new FirmwareVersion
-            {
-                Id = Guid.NewGuid(),
-                NpiProgramId = eagan.Id,
-                NpiProgram = eagan,
-                Version = "3.2.0",
-                Stage = FirmwareReleaseStage.T3_Released,
-                ReleasedAt = new DateTime(2026, 1, 15),
-                ReleasedBy = "Firmware Team",
-                ChangeLog = new List<string> { "Added 2 new directionality parameters" },
-                Parameters = CreateSampleParameters(26)
-            },
-            new FirmwareVersion
-            {
-                Id = Guid.NewGuid(),
-                NpiProgramId = eagan.Id,
-                NpiProgram = eagan,
-                Version = "3.2.1",
-                Stage = FirmwareReleaseStage.T3_Released,
-                ReleasedAt = new DateTime(2026, 1, 28),
-                ReleasedBy = "Firmware Team",
-                ChangeLog = new List<string> { "Bug fixes only", "Fixed gain calculation" },
-                Parameters = CreateSampleParameters(26)
-            },
-            new FirmwareVersion
-            {
-                Id = Guid.NewGuid(),
-                NpiProgramId = eagan.Id,
-                NpiProgram = eagan,
-                Version = "3.3.0",
-                Stage = FirmwareReleaseStage.T2_Beta,
-                ReleasedAt = new DateTime(2026, 2, 1),
-                ReleasedBy = "Firmware Team",
-                ChangeLog = new List<string> { "Beta: New noise gate feature" },
-                Parameters = CreateSampleParameters(28)
-            },
-            // Elko (Next Gen)
-            new FirmwareVersion
-            {
-                Id = Guid.NewGuid(),
-                NpiProgramId = elko.Id,
-                NpiProgram = elko,
-                Version = "4.0.0",
-                Stage = FirmwareReleaseStage.T0_Test,
-                ReleasedAt = new DateTime(2026, 2, 2),
-                ReleasedBy = "R&D Team",
-                ChangeLog = new List<string> { "Experimental: Complete redesign", "IDs may change" },
-                Parameters = CreateSampleParameters(32)
-            }
-        };
+        // This method is deprecated - use InitializeLpiVersionsWithSharedParameters instead
+        throw new NotImplementedException();
     }
 
-    private List<FirmwareVersion> InitializePiccoloVersions()
+    private List<FirmwareVersion> InitializeLpiVersionsWithSharedParameters(List<NpiProgram> npiPrograms, List<ParameterDefinition> allParameters)
     {
-        var edina = _npiPrograms.First(p => p.Name == "Edina");
-        var eagan = _npiPrograms.First(p => p.Name == "Eagan");
-        var elko = _npiPrograms.First(p => p.Name == "Elko");
+        var edina = npiPrograms.First(p => p.Name == "Edina");
+        var eagan = npiPrograms.First(p => p.Name == "Eagan");
+        var elko = npiPrograms.First(p => p.Name == "Elko");
 
-        return new List<FirmwareVersion>
+        int paramIdCounter = 1000;
+        
+        var versions = new List<FirmwareVersion>();
+
+        // Edina (Legacy)
+        var edina280Params = CreateUniqueParameters(20, ref paramIdCounter);
+        allParameters.AddRange(edina280Params);
+        versions.Add(new FirmwareVersion
         {
-            // Edina (Legacy)
-            new FirmwareVersion
-            {
-                Id = Guid.NewGuid(),
-                NpiProgramId = edina.Id,
-                NpiProgram = edina,
-                Version = "1.9.0",
-                Stage = FirmwareReleaseStage.T3_Released,
-                ReleasedAt = new DateTime(2024, 10, 20),
-                ReleasedBy = "Legacy Team",
-                ChangeLog = new List<string> { "Final Edina PICCOLO release" },
-                Commands = CreateSampleCommands(14)
-            },
-            // Eagan
-            new FirmwareVersion
-            {
-                Id = Guid.NewGuid(),
-                NpiProgramId = eagan.Id,
-                NpiProgram = eagan,
-                Version = "2.4.0",
-                Stage = FirmwareReleaseStage.T3_Released,
-                ReleasedAt = new DateTime(2025, 11, 20),
-                ReleasedBy = "Firmware Team",
-                ChangeLog = new List<string> { "Eagan initial PICCOLO release" },
-                Commands = CreateSampleCommands(16)
-            },
-            new FirmwareVersion
-            {
-                Id = Guid.NewGuid(),
-                NpiProgramId = eagan.Id,
-                NpiProgram = eagan,
-                Version = "2.5.0",
-                Stage = FirmwareReleaseStage.T3_Released,
-                ReleasedAt = new DateTime(2026, 1, 10),
-                ReleasedBy = "Firmware Team",
-                ChangeLog = new List<string> { "Added advanced audio commands" },
-                Commands = CreateSampleCommands(18)
-            },
-            new FirmwareVersion
-            {
-                Id = Guid.NewGuid(),
-                NpiProgramId = eagan.Id,
-                NpiProgram = eagan,
-                Version = "2.6.0",
-                Stage = FirmwareReleaseStage.T2_Beta,
-                ReleasedAt = new DateTime(2026, 2, 1),
-                ReleasedBy = "Firmware Team",
-                ChangeLog = new List<string> { "Beta: Streaming audio commands" },
-                Commands = CreateSampleCommands(20)
-            },
-            // Elko (Next Gen)
-            new FirmwareVersion
-            {
-                Id = Guid.NewGuid(),
-                NpiProgramId = elko.Id,
-                NpiProgram = elko,
-                Version = "3.0.0",
-                Stage = FirmwareReleaseStage.T0_Test,
-                ReleasedAt = new DateTime(2026, 2, 2),
-                ReleasedBy = "R&D Team",
-                ChangeLog = new List<string> { "Experimental: New command protocol" },
-                Commands = CreateSampleCommands(24)
-            }
-        };
+            Id = Guid.NewGuid(),
+            NpiProgramId = edina.Id,
+            NpiProgram = edina,
+            Version = "2.8.0",
+            Stage = FirmwareReleaseStage.T3_Released,
+            ReleasedAt = new DateTime(2024, 11, 1),
+            ReleasedBy = "Legacy Team",
+            ChangeLog = new List<string> { "Final Edina release" },
+            Parameters = edina280Params
+        });
+
+        // Eagan versions
+        var eagan310Params = CreateUniqueParameters(24, ref paramIdCounter);
+        allParameters.AddRange(eagan310Params);
+        versions.Add(new FirmwareVersion
+        {
+            Id = Guid.NewGuid(),
+            NpiProgramId = eagan.Id,
+            NpiProgram = eagan,
+            Version = "3.1.0",
+            Stage = FirmwareReleaseStage.T3_Released,
+            ReleasedAt = new DateTime(2025, 12, 1),
+            ReleasedBy = "Firmware Team",
+            ChangeLog = new List<string> { "Eagan initial release", "24 new parameters" },
+            Parameters = eagan310Params
+        });
+
+        var eagan320Params = CreateUniqueParameters(26, ref paramIdCounter);
+        allParameters.AddRange(eagan320Params);
+        versions.Add(new FirmwareVersion
+        {
+            Id = Guid.NewGuid(),
+            NpiProgramId = eagan.Id,
+            NpiProgram = eagan,
+            Version = "3.2.0",
+            Stage = FirmwareReleaseStage.T3_Released,
+            ReleasedAt = new DateTime(2026, 1, 15),
+            ReleasedBy = "Firmware Team",
+            ChangeLog = new List<string> { "Added 2 new directionality parameters" },
+            Parameters = eagan320Params
+        });
+
+        var eagan321Params = CreateUniqueParameters(26, ref paramIdCounter);
+        allParameters.AddRange(eagan321Params);
+        versions.Add(new FirmwareVersion
+        {
+            Id = Guid.NewGuid(),
+            NpiProgramId = eagan.Id,
+            NpiProgram = eagan,
+            Version = "3.2.1",
+            Stage = FirmwareReleaseStage.T3_Released,
+            ReleasedAt = new DateTime(2026, 1, 28),
+            ReleasedBy = "Firmware Team",
+            ChangeLog = new List<string> { "Bug fixes only", "Fixed gain calculation" },
+            Parameters = eagan321Params
+        });
+
+        var eagan330Params = CreateUniqueParameters(28, ref paramIdCounter);
+        allParameters.AddRange(eagan330Params);
+        versions.Add(new FirmwareVersion
+        {
+            Id = Guid.NewGuid(),
+            NpiProgramId = eagan.Id,
+            NpiProgram = eagan,
+            Version = "3.3.0",
+            Stage = FirmwareReleaseStage.T2_Beta,
+            ReleasedAt = new DateTime(2026, 2, 1),
+            ReleasedBy = "Firmware Team",
+            ChangeLog = new List<string> { "Beta: New noise gate feature" },
+            Parameters = eagan330Params
+        });
+
+        // Elko (Next Gen)
+        var elko400Params = CreateUniqueParameters(32, ref paramIdCounter);
+        allParameters.AddRange(elko400Params);
+        versions.Add(new FirmwareVersion
+        {
+            Id = Guid.NewGuid(),
+            NpiProgramId = elko.Id,
+            NpiProgram = elko,
+            Version = "4.0.0",
+            Stage = FirmwareReleaseStage.T0_Test,
+            ReleasedAt = new DateTime(2026, 2, 2),
+            ReleasedBy = "R&D Team",
+            ChangeLog = new List<string> { "Experimental: Complete redesign", "IDs may change" },
+            Parameters = elko400Params
+        });
+
+        return versions;
     }
 
-    private List<ParameterDefinition> CreateSampleParameters(int count)
+    private List<FirmwareVersion> InitializePiccoloVersions(List<NpiProgram> npiPrograms)
+    {
+        // This method is deprecated - use InitializePiccoloVersionsWithSharedCommands instead
+        throw new NotImplementedException();
+    }
+
+    private List<FirmwareVersion> InitializePiccoloVersionsWithSharedCommands(List<NpiProgram> npiPrograms, List<CommandDefinition> allCommands)
+    {
+        var edina = npiPrograms.First(p => p.Name == "Edina");
+        var eagan = npiPrograms.First(p => p.Name == "Eagan");
+        var elko = npiPrograms.First(p => p.Name == "Elko");
+
+        byte cmdCodeCounter = 0x10;
+        
+        var versions = new List<FirmwareVersion>();
+
+        // Edina (Legacy)
+        var edina190Cmds = CreateUniqueCommands(14, ref cmdCodeCounter);
+        allCommands.AddRange(edina190Cmds);
+        versions.Add(new FirmwareVersion
+        {
+            Id = Guid.NewGuid(),
+            NpiProgramId = edina.Id,
+            NpiProgram = edina,
+            Version = "1.9.0",
+            Stage = FirmwareReleaseStage.T3_Released,
+            ReleasedAt = new DateTime(2024, 10, 20),
+            ReleasedBy = "Legacy Team",
+            ChangeLog = new List<string> { "Final Edina PICCOLO release" },
+            Commands = edina190Cmds
+        });
+
+        // Eagan versions
+        var eagan240Cmds = CreateUniqueCommands(16, ref cmdCodeCounter);
+        allCommands.AddRange(eagan240Cmds);
+        versions.Add(new FirmwareVersion
+        {
+            Id = Guid.NewGuid(),
+            NpiProgramId = eagan.Id,
+            NpiProgram = eagan,
+            Version = "2.4.0",
+            Stage = FirmwareReleaseStage.T3_Released,
+            ReleasedAt = new DateTime(2025, 11, 20),
+            ReleasedBy = "Firmware Team",
+            ChangeLog = new List<string> { "Eagan initial PICCOLO release" },
+            Commands = eagan240Cmds
+        });
+
+        var eagan250Cmds = CreateUniqueCommands(18, ref cmdCodeCounter);
+        allCommands.AddRange(eagan250Cmds);
+        versions.Add(new FirmwareVersion
+        {
+            Id = Guid.NewGuid(),
+            NpiProgramId = eagan.Id,
+            NpiProgram = eagan,
+            Version = "2.5.0",
+            Stage = FirmwareReleaseStage.T3_Released,
+            ReleasedAt = new DateTime(2026, 1, 10),
+            ReleasedBy = "Firmware Team",
+            ChangeLog = new List<string> { "Added advanced audio commands" },
+            Commands = eagan250Cmds
+        });
+
+        var eagan260Cmds = CreateUniqueCommands(20, ref cmdCodeCounter);
+        allCommands.AddRange(eagan260Cmds);
+        versions.Add(new FirmwareVersion
+        {
+            Id = Guid.NewGuid(),
+            NpiProgramId = eagan.Id,
+            NpiProgram = eagan,
+            Version = "2.6.0",
+            Stage = FirmwareReleaseStage.T2_Beta,
+            ReleasedAt = new DateTime(2026, 2, 1),
+            ReleasedBy = "Firmware Team",
+            ChangeLog = new List<string> { "Beta: Streaming audio commands" },
+            Commands = eagan260Cmds
+        });
+
+        // Elko (Next Gen)
+        var elko300Cmds = CreateUniqueCommands(24, ref cmdCodeCounter);
+        allCommands.AddRange(elko300Cmds);
+        versions.Add(new FirmwareVersion
+        {
+            Id = Guid.NewGuid(),
+            NpiProgramId = elko.Id,
+            NpiProgram = elko,
+            Version = "3.0.0",
+            Stage = FirmwareReleaseStage.T0_Test,
+            ReleasedAt = new DateTime(2026, 2, 2),
+            ReleasedBy = "R&D Team",
+            ChangeLog = new List<string> { "Experimental: New command protocol" },
+            Commands = elko300Cmds
+        });
+
+        return versions;
+    }
+
+    private List<ParameterDefinition> CreateUniqueParameters(int count, ref int startId)
     {
         var parameters = new List<ParameterDefinition>();
         var paramNames = new[] { "Gain", "Threshold", "AttackTime", "ReleaseTime", "Directionality", 
@@ -251,7 +333,7 @@ public class FirmwareDataService
         {
             parameters.Add(new ParameterDefinition
             {
-                Id = 1000 + i,
+                Id = startId++,
                 Name = $"PARAM_{paramNames[i % paramNames.Length]}_{i / paramNames.Length}",
                 DataType = "int",
                 MinValue = 0,
@@ -265,7 +347,7 @@ public class FirmwareDataService
         return parameters;
     }
 
-    private List<CommandDefinition> CreateSampleCommands(int count)
+    private List<CommandDefinition> CreateUniqueCommands(int count, ref byte startCode)
     {
         var commands = new List<CommandDefinition>();
         var cmdNames = new[] { "Initialize", "SetGain", "SetMode", "StartStream", "StopStream", 
@@ -275,12 +357,12 @@ public class FirmwareDataService
         {
             commands.Add(new CommandDefinition
             {
-                CommandCode = (byte)(0x10 + i),
+                CommandCode = startCode++,
                 Name = $"CMD_{cmdNames[i % cmdNames.Length]}_{i / cmdNames.Length}",
                 Description = $"Sample command {i}",
-                Parameters = new List<ParameterDefinition>(),
-                ExpectedResponseCode = (byte)(0x80 + i),
-                IsDeprecated = false
+                ExpectedResponseCode = 0x00,
+                IsDeprecated = false,
+                Parameters = new List<ParameterDefinition>()
             });
         }
         
@@ -481,23 +563,27 @@ public class FirmwareDataService
         };
     }
 
-    private List<FeatureCollection> InitializeCollections()
+    private List<FeatureCollection> InitializeCollections(
+        List<NpiProgram> npiPrograms,
+        List<FirmwareVersion> lpiVersions,
+        List<FirmwareVersion> piccoloVersions,
+        List<Feature> features)
     {
-        var eagan = _npiPrograms.First(p => p.Name == "Eagan");
-        var edina = _npiPrograms.First(p => p.Name == "Edina");
-        var elko = _npiPrograms.First(p => p.Name == "Elko");
+        var eagan = npiPrograms.First(p => p.Name == "Eagan");
+        var edina = npiPrograms.First(p => p.Name == "Edina");
+        var elko = npiPrograms.First(p => p.Name == "Elko");
         
-        var eagan321Lpi = _lpiVersions.First(v => v.Version == "3.2.1" && v.NpiProgram?.Name == "Eagan");
-        var eagan250Piccolo = _piccoloVersions.First(v => v.Version == "2.5.0" && v.NpiProgram?.Name == "Eagan");
+        var eagan321Lpi = lpiVersions.First(v => v.Version == "3.2.1" && v.NpiProgram?.Name == "Eagan");
+        var eagan250Piccolo = piccoloVersions.First(v => v.Version == "2.5.0" && v.NpiProgram?.Name == "Eagan");
         
-        var eagan330Lpi = _lpiVersions.First(v => v.Version == "3.3.0");
-        var eagan260Piccolo = _piccoloVersions.First(v => v.Version == "2.6.0");
+        var eagan330Lpi = lpiVersions.First(v => v.Version == "3.3.0");
+        var eagan260Piccolo = piccoloVersions.First(v => v.Version == "2.6.0");
         
-        var edina280Lpi = _lpiVersions.First(v => v.Version == "2.8.0");
-        var edina190Piccolo = _piccoloVersions.First(v => v.Version == "1.9.0");
+        var edina280Lpi = lpiVersions.First(v => v.Version == "2.8.0");
+        var edina190Piccolo = piccoloVersions.First(v => v.Version == "1.9.0");
         
-        var elko400Lpi = _lpiVersions.First(v => v.Version == "4.0.0");
-        var elko300Piccolo = _piccoloVersions.First(v => v.Version == "3.0.0");
+        var elko400Lpi = lpiVersions.First(v => v.Version == "4.0.0");
+        var elko300Piccolo = piccoloVersions.First(v => v.Version == "3.0.0");
 
         return new List<FeatureCollection>
         {
@@ -512,7 +598,7 @@ public class FirmwareDataService
                 RequiredLpiVersion = eagan321Lpi,
                 RequiredPiccoloVersionId = eagan250Piccolo.Id,
                 RequiredPiccoloVersion = eagan250Piccolo,
-                Features = _features.Take(3).ToList(),
+                Features = features.Take(3).ToList(),
                 Visibility = CollectionVisibility.Team,
                 Owner = "john.doe@company.com",
                 SharedWith = new List<string> { "Firmware Team", "QA Team" },
@@ -532,7 +618,7 @@ public class FirmwareDataService
                 RequiredLpiVersion = eagan330Lpi,
                 RequiredPiccoloVersionId = eagan260Piccolo.Id,
                 RequiredPiccoloVersion = eagan260Piccolo,
-                Features = _features.Skip(1).Take(2).ToList(),
+                Features = features.Skip(1).Take(2).ToList(),
                 Visibility = CollectionVisibility.Private,
                 Owner = "john.doe@company.com",
                 SharedWith = new List<string>(),
@@ -552,7 +638,7 @@ public class FirmwareDataService
                 RequiredLpiVersion = edina280Lpi,
                 RequiredPiccoloVersionId = edina190Piccolo.Id,
                 RequiredPiccoloVersion = edina190Piccolo,
-                Features = _features.Take(1).ToList(),
+                Features = features.Take(1).ToList(),
                 Visibility = CollectionVisibility.Team,
                 Owner = "support@company.com",
                 SharedWith = new List<string> { "Support Team" },
@@ -586,40 +672,290 @@ public class FirmwareDataService
     }
 
     // Public methods for accessing data
-    public List<NpiProgram> GetNpiPrograms() => _npiPrograms;
-    public NpiProgram? GetNpiProgram(Guid id) => _npiPrograms.FirstOrDefault(p => p.Id == id);
+    public List<NpiProgram> GetNpiPrograms() => _context.NpiPrograms.ToList();
+    public NpiProgram? GetNpiProgram(Guid id) => _context.NpiPrograms.FirstOrDefault(p => p.Id == id);
     
     public List<FirmwareVersion> GetLpiVersions(Guid? npiProgramId = null)
     {
+        var query = _context.FirmwareVersions
+            .Include(v => v.NpiProgram)
+            .Where(v => v.Parameters.Any()); // LPI versions have parameters
+        
         if (npiProgramId.HasValue)
-            return _lpiVersions.Where(v => v.NpiProgramId == npiProgramId.Value).ToList();
-        return _lpiVersions;
+            query = query.Where(v => v.NpiProgramId == npiProgramId.Value);
+        
+        return query.ToList();
     }
     
     public List<FirmwareVersion> GetPiccoloVersions(Guid? npiProgramId = null)
     {
+        var query = _context.FirmwareVersions
+            .Include(v => v.NpiProgram)
+            .Where(v => v.Commands.Any()); // PICCOLO versions have commands
+        
         if (npiProgramId.HasValue)
-            return _piccoloVersions.Where(v => v.NpiProgramId == npiProgramId.Value).ToList();
-        return _piccoloVersions;
+            query = query.Where(v => v.NpiProgramId == npiProgramId.Value);
+        
+        return query.ToList();
     }
     
-    public FirmwareVersion? GetLpiVersion(Guid id) => _lpiVersions.FirstOrDefault(v => v.Id == id);
-    public FirmwareVersion? GetPiccoloVersion(Guid id) => _piccoloVersions.FirstOrDefault(v => v.Id == id);
+    public FirmwareVersion? GetLpiVersion(Guid id) => _context.FirmwareVersions
+        .Include(v => v.NpiProgram)
+        .Include(v => v.Parameters)
+        .FirstOrDefault(v => v.Id == id);
     
-    public List<Feature> GetFeatures() => _features;
-    public Feature? GetFeature(Guid id) => _features.FirstOrDefault(f => f.Id == id);
+    public FirmwareVersion? GetPiccoloVersion(Guid id) => _context.FirmwareVersions
+        .Include(v => v.NpiProgram)
+        .Include(v => v.Commands)
+        .FirstOrDefault(v => v.Id == id);
     
-    public List<FeatureCollection> GetCollections() => _collections;
-    public FeatureCollection? GetCollection(Guid id) => _collections.FirstOrDefault(c => c.Id == id);
+    public List<Feature> GetFeatures() => _context.Features
+        .Include(f => f.Parameters)
+        .Include(f => f.Commands)
+        .ToList();
+    public Feature? GetFeature(Guid id) => _context.Features
+        .Include(f => f.Parameters)
+        .Include(f => f.Commands)
+        .FirstOrDefault(f => f.Id == id);
     
-    public void AddCollection(FeatureCollection collection) => _collections.Add(collection);
+    public List<Feature> GetAllFeatures() => _context.Features
+        .Include(f => f.Parameters)
+        .Include(f => f.Commands)
+        .ToList();
+    
+    public List<FeatureCollection> GetCollections() => _context.FeatureCollections
+        .Include(c => c.TargetProgram)
+        .Include(c => c.RequiredLpiVersion)
+        .Include(c => c.RequiredPiccoloVersion)
+        .Include(c => c.Features)
+        .ToList();
+    
+    public FeatureCollection? GetCollection(Guid id) => _context.FeatureCollections
+        .Include(c => c.TargetProgram)
+        .Include(c => c.RequiredLpiVersion)
+        .Include(c => c.RequiredPiccoloVersion)
+        .Include(c => c.Features)
+        .FirstOrDefault(c => c.Id == id);
+    
+    public void AddCollection(FeatureCollection collection)
+    {
+        _context.FeatureCollections.Add(collection);
+        _context.SaveChanges();
+    }
+    
     public void UpdateCollection(FeatureCollection collection)
     {
-        var existing = _collections.FirstOrDefault(c => c.Id == collection.Id);
-        if (existing != null)
+        _context.FeatureCollections.Update(collection);
+        _context.SaveChanges();
+    }
+
+    public OperationalFlow GetDfuFlow()
+    {
+        // Find the "Eagan Advanced Directionality" collection to link to
+        var contextCollection = _context.FeatureCollections.FirstOrDefault(c => c.Name.Contains("Eagan Advanced Directionality")) 
+            ?? _context.FeatureCollections.First();
+        var linkedFeature = _context.Features.First();
+
+        return new OperationalFlow
         {
-            var index = _collections.IndexOf(existing);
-            _collections[index] = collection;
-        }
+            Id = Guid.NewGuid(),
+            CollectionId = contextCollection.Id,
+            FeatureId = linkedFeature.Id,
+            Name = "Device Firmware Update (DFU) Sequence",
+            Description = "Standard over-the-air firmware update process with safety checks and rollback.",
+            Operations = new List<FlowOperation>
+            {
+                new FlowOperation
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Operation 1: Pre-Flight Safety Checks",
+                    Type = "Sequential",
+                    Steps = new List<FlowStep>
+                    {
+                        new FlowStep
+                        {
+                            Id = Guid.NewGuid(),
+                            StepNumber = "1.1",
+                            Title = "Check Battery Level",
+                            Description = "Ensure device has enough power for the update process.",
+                            Type = "Command",
+                            Attributes = new Dictionary<string, string>
+                            {
+                                { "Command", "GET_BATTERY_STATUS (0x12)" },
+                                { "Timeout", "500ms" },
+                                { "Store Result", "var_bat_level" }
+                            }
+                        },
+                        new FlowStep
+                        {
+                            Id = Guid.NewGuid(),
+                            StepNumber = "1.2",
+                            Title = "Validate Power Requirement",
+                            Description = "Check if battery level is sufficient (> 50%).",
+                            Type = "Decision",
+                            Attributes = new Dictionary<string, string>
+                            {
+                                { "Condition", "var_bat_level >= 50" }
+                            },
+                            Branches = new List<FlowBranch>
+                            {
+                                new FlowBranch { Label = "Pass", Description = "Battery > 50%", Action = "Continue to Next Operation" },
+                                new FlowBranch { Label = "Fail", Description = "Battery < 50%", Action = "Abort Workflow", IsErrorPath = true }
+                            }
+                        }
+                    }
+                },
+                new FlowOperation
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Operation 2: DFU Mode Transition",
+                    Type = "Sequential",
+                    Steps = new List<FlowStep>
+                    {
+                        new FlowStep
+                        {
+                            Id = Guid.NewGuid(),
+                            StepNumber = "2.1",
+                            Title = "Set DFU Mode",
+                            Description = "Command device to enter bootloader mode.",
+                            Type = "Command",
+                            Attributes = new Dictionary<string, string>
+                            {
+                                { "Command", "SET_SYS_MODE (0xA0)" },
+                                { "Payload", "0x01 (DFU)" }
+                            }
+                        },
+                        new FlowStep
+                        {
+                            Id = Guid.NewGuid(),
+                            StepNumber = "2.2",
+                            Title = "Wait for Reboot",
+                            Description = "Allow device time to restart in bootloader.",
+                            Type = "Delay",
+                            Attributes = new Dictionary<string, string>
+                            {
+                                { "Duration", "2000 ms" },
+                                { "Reason", "Device Reboot" }
+                            }
+                        },
+                        new FlowStep
+                        {
+                            Id = Guid.NewGuid(),
+                            StepNumber = "2.3",
+                            Title = "Verify Bootloader State",
+                            Description = "Ping device to confirm it is reachable and in DFU mode.",
+                            Type = "Decision",
+                            Attributes = new Dictionary<string, string>
+                            {
+                                { "Command", "PING (0x00)" },
+                                { "Retries", "3" }
+                            },
+                             Branches = new List<FlowBranch>
+                            {
+                                new FlowBranch { Label = "Ack", Description = "Device Responded", Action = "Continue" },
+                                new FlowBranch { Label = "Timeout", Description = "No Response", Action = "Retry (Max 3)", IsErrorPath = true }
+                            }
+                        }
+                    }
+                },
+                new FlowOperation
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Operation 3: Image Transfer Loop",
+                    Type = "Loop",
+                    Steps = new List<FlowStep>
+                    {
+                        new FlowStep
+                        {
+                            Id = Guid.NewGuid(),
+                            StepNumber = "3.1",
+                            Title = "Calculate Transfer Chunks",
+                            Description = "Split binary into 256-byte packets.",
+                            Type = "Calculation",
+                            Attributes = new Dictionary<string, string>
+                            {
+                                { "Input", "Firmware Binary" },
+                                { "Chunk Size", "256 bytes" },
+                                { "Set", "var_total_packets" }
+                            }
+                        },
+                         new FlowStep
+                        {
+                            Id = Guid.NewGuid(),
+                            StepNumber = "3.2",
+                            Title = "Send Packet",
+                            Description = "Transmit current data packet.",
+                            Type = "Command",
+                            Attributes = new Dictionary<string, string>
+                            {
+                                { "Command", "DFU_WRITE (0xB1)" },
+                                { "Payload", "[Packet Index] [Data...]" }
+                            }
+                        },
+                         new FlowStep
+                        {
+                            Id = Guid.NewGuid(),
+                            StepNumber = "3.3",
+                            Title = "Verify Packet Write",
+                            Description = "Check device acknowledgment for the packet.",
+                            Type = "Decision",
+                            Attributes = new Dictionary<string, string>(),
+                             Branches = new List<FlowBranch>
+                            {
+                                new FlowBranch { Label = "Ack", Description = "Write OK", Action = "Next Packet" },
+                                new FlowBranch { Label = "Nack", Description = "Write Failed", Action = "Retry Packet (Max 5)", IsErrorPath = true }
+                            }
+                        }
+                    }
+                },
+                new FlowOperation
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Operation 4: Validation & Activation",
+                    Type = "Sequential",
+                    Steps = new List<FlowStep>
+                    {
+                        new FlowStep
+                        {
+                            Id = Guid.NewGuid(),
+                            StepNumber = "4.1",
+                            Title = "Validate Full Image",
+                            Description = "Request CRC32 checksum of uploaded image.",
+                            Type = "Command",
+                            Attributes = new Dictionary<string, string>
+                            {
+                                { "Command", "DFU_VALIDATE (0xB2)" },
+                                { "Expected CRC", "0xA3F192..." }
+                            }
+                        },
+                        new FlowStep
+                        {
+                            Id = Guid.NewGuid(),
+                            StepNumber = "4.2",
+                            Title = "Validation Check",
+                            Description = "Compare device CRC with calculated CRC.",
+                            Type = "Decision",
+                            Branches = new List<FlowBranch>
+                            {
+                                new FlowBranch { Label = "Match", Description = "CRC Valid", Action = "Continue" },
+                                new FlowBranch { Label = "Mismatch", Description = "Corrupt Image", Action = "Abort & Rollback", IsErrorPath = true }
+                            }
+                        },
+                        new FlowStep
+                        {
+                            Id = Guid.NewGuid(),
+                            StepNumber = "4.3",
+                            Title = "Apply & Boot",
+                            Description = "Mark valid and restart device to new firmware.",
+                            Type = "Command",
+                            Attributes = new Dictionary<string, string>
+                            {
+                                { "Command", "SYS_RESET (0x01)" }
+                            }
+                        }
+                    }
+                }
+            }
+        };
     }
 }

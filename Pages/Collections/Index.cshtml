@@ -7,43 +7,59 @@
 <div class="container-fluid mt-4">
     <div class="row mb-3">
         <div class="col">
-            <h2>Feature Collections</h2>
+            <h1><i class="bi bi-collection"></i> Feature Collections</h1>
+            <p class="text-muted">Version-aware collections for PICCOLO firmware features</p>
         </div>
         <div class="col-auto">
-            <a href="/Collections/Create" class="btn btn-primary">+ New Collection</a>
+            <a href="/Collections/Compare" class="btn btn-outline-primary me-2">
+                <i class="bi bi-arrow-left-right"></i> Compare
+            </a>
+            <a href="/Collections/Create" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> New Collection
+            </a>
         </div>
     </div>
 
     <!-- Current Device Context -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <strong>Current Device Context</strong>
-            <button class="btn btn-sm btn-outline-secondary">Change</button>
+    <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-device-hdd"></i> Current Firmware Context</h5>
+            <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#contextModal">
+                <i class="bi bi-gear"></i> Change Context
+            </button>
         </div>
         <div class="card-body">
             @if (Model.CurrentProgram != null)
             {
                 <div class="row">
-                    <div class="col-md-6">
-                        <strong>NPI Program:</strong> @Model.CurrentProgram.Name (v@Model.CurrentProgram.MajorVersion.x - @Model.CurrentProgram.Status)
+                    <div class="col-md-4">
+                        <strong>NPI Program:</strong><br/>
+                        <span class="badge bg-secondary">@Model.CurrentProgram.HardwareGen</span>
+                        @Model.CurrentProgram.Name (v@(Model.CurrentProgram.MajorVersion).x)
+                    </div>
+                    <div class="col-md-4">
+                        <strong>LPI Version:</strong><br/>
+                        @if (Model.CurrentLpiVersion != null)
+                        {
+                            <span class="badge @Model.GetStageBadgeClass(Model.CurrentLpiVersion.Stage)">
+                                @Model.CurrentLpiVersion.Version
+                            </span>
+                        }
+                    </div>
+                    <div class="col-md-4">
+                        <strong>PICCOLO Version:</strong><br/>
+                        @if (Model.CurrentPiccoloVersion != null)
+                        {
+                            <span class="badge @Model.GetStageBadgeClass(Model.CurrentPiccoloVersion.Stage)">
+                                @Model.CurrentPiccoloVersion.Version
+                            </span>
+                        }
                     </div>
                 </div>
-                <div class="row mt-2">
-                    <div class="col-md-6">
-                        <strong>LPI Version:</strong> @Model.CurrentLpiVersion?.Version (@Model.CurrentLpiVersion?.Stage) 📌
-                    </div>
-                    <div class="col-md-6">
-                        <strong>PICCOLO Version:</strong> @Model.CurrentPiccoloVersion?.Version (@Model.CurrentPiccoloVersion?.Stage) 📌
-                    </div>
-                </div>
-                <div class="row mt-2">
+                <div class="row mt-3">
                     <div class="col-12">
                         <small class="text-muted">
-                            Version Preferences: 
-                            <span class="badge bg-success">T3</span>
-                            <span class="badge bg-secondary">T2</span>
-                            <span class="badge bg-secondary">T1</span>
-                            <span class="badge bg-secondary">T0</span>
+                            <i class="bi bi-info-circle"></i> Collections are filtered based on firmware compatibility
                         </small>
                     </div>
                 </div>
@@ -53,14 +69,20 @@
 
     <!-- Collections List -->
     <div class="card">
-        <div class="card-header">
-            <strong>Collections (@Model.Collections.Count)</strong>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Collections (@Model.Collections.Count)</h5>
+            <div>
+                <span class="badge bg-success me-1"><i class="bi bi-check-circle"></i> Compatible</span>
+                <span class="badge bg-warning text-dark me-1"><i class="bi bi-exclamation-triangle"></i> Partial</span>
+                <span class="badge bg-info me-1"><i class="bi bi-flask"></i> Test</span>
+                <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Incompatible</span>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="table table-hover mb-0">
-                <thead>
+                <thead class="table-light">
                     <tr>
-                        <th>Name / Versions</th>
+                        <th>Name / Firmware Versions</th>
                         <th>Features</th>
                         <th>Modified</th>
                         <th>Compatibility</th>
@@ -70,74 +92,97 @@
                 <tbody>
                     @foreach (var collection in Model.Collections)
                     {
-                        <tr>
+                        var compatStatus = Model.GetCompatibilityStatus(collection);
+                        <tr class="@(compatStatus == "incompatible" ? "table-danger" : "")">
                             <td>
                                 <div>
-                                    <strong>📦 @collection.Name</strong>
+                                    <strong><i class="bi bi-collection"></i> @collection.Name</strong>
                                     @if (collection.IsLocked)
                                     {
-                                        <span class="badge bg-secondary">🔒 Locked</span>
+                                        <span class="badge bg-secondary"><i class="bi bi-lock"></i> Locked</span>
+                                    }
+                                    @if (collection.Visibility == CollectionVisibility.Private)
+                                    {
+                                        <span class="badge bg-dark"><i class="bi bi-person"></i> Private</span>
+                                    }
+                                    else if (collection.Visibility == CollectionVisibility.Team)
+                                    {
+                                        <span class="badge bg-primary"><i class="bi bi-people"></i> Team</span>
                                     }
                                 </div>
-                                <div class="small text-muted">
-                                    @collection.TargetProgram?.Name (@collection.TargetProgram?.Status) | 
-                                    LPI @collection.RequiredLpiVersion?.Version | 
-                                    PICCOLO @collection.RequiredPiccoloVersion?.Version
+                                <div class="small text-muted mt-1">
+                                    <strong>@collection.TargetProgram?.Name</strong> 
+                                    <span class="badge bg-secondary">@collection.TargetProgram?.HardwareGen</span>
                                 </div>
-                                @if (collection.RequiredLpiVersion?.Stage == FirmwareReleaseStage.T0_Test || 
-                                     collection.RequiredLpiVersion?.Stage == FirmwareReleaseStage.T1_Alpha)
+                                <div class="small mt-1">
+                                    <span class="me-2">
+                                        <strong>LPI:</strong> 
+                                        <span class="badge @Model.GetStageBadgeClass(collection.RequiredLpiVersion?.Stage ?? FirmwareReleaseStage.T3_Released)">
+                                            @collection.RequiredLpiVersion?.Version
+                                        </span>
+                                    </span>
+                                    <span>
+                                        <strong>PICCOLO:</strong> 
+                                        <span class="badge @Model.GetStageBadgeClass(collection.RequiredPiccoloVersion?.Stage ?? FirmwareReleaseStage.T3_Released)">
+                                            @collection.RequiredPiccoloVersion?.Version
+                                        </span>
+                                    </span>
+                                </div>
+                                @if (collection.Tags.Any())
                                 {
-                                    <div class="small">
-                                        <span class="badge bg-warning">🧪 @collection.RequiredLpiVersion?.Stage</span>
+                                    <div class="small mt-1">
+                                        @foreach (var tag in collection.Tags.Take(3))
+                                        {
+                                            <span class="badge bg-light text-dark border">@tag</span>
+                                        }
+                                        @if (collection.Tags.Count > 3)
+                                        {
+                                            <span class="text-muted">+@(collection.Tags.Count - 3) more</span>
+                                        }
                                     </div>
                                 }
-                                <div class="small">
-                                    @foreach (var tag in collection.Tags.Take(3))
-                                    {
-                                        <span class="badge bg-info">@tag</span>
-                                    }
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-layers me-2 text-primary"></i>
+                                    <span>@collection.Features.Count features</span>
                                 </div>
-                                <div class="small text-muted">
-                                    @if (collection.Visibility == CollectionVisibility.Team && collection.SharedWith.Any())
-                                    {
-                                        <span>👥 Shared: @string.Join(", ", collection.SharedWith.Take(2))</span>
-                                        @if (collection.SharedWith.Count > 2)
+                                @if (collection.Features.Any(f => f.IsComposite))
+                                {
+                                    <div class="small text-info mt-1">
+                                        <i class="bi bi-diagram-3"></i> @collection.Features.Count(f => f.IsComposite) Composite
+                                    </div>
+                                }
+                                <div class="small text-muted mt-1">
+                                    @{
+                                        var topFeatures = collection.Features.Take(2).ToList();
+                                        @string.Join(", ", topFeatures.Select(f => f.Name))
+                                        @if (collection.Features.Count > 2)
                                         {
                                             <span>...</span>
                                         }
                                     }
-                                    else if (collection.Visibility == CollectionVisibility.Private)
-                                    {
-                                        <span>👤 Private</span>
-                                    }
                                 </div>
                             </td>
-                            <td>@collection.Features.Count</td>
                             <td>
-                                <div>@collection.ModifiedAt.ToString("yyyy-MM-dd")</div>
-                                <div class="small text-muted">@collection.ModifiedAt.ToString("HH:mm")</div>
-                            </td>
-                            <td class="@Model.GetCompatibilityClass(collection)">
-                                <strong>@Model.GetCompatibilityIcon(collection) @Model.GetCompatibilityStatus(collection)</strong>
-                                @if (Model.GetCompatibilityStatus(collection) == "partial")
-                                {
-                                    <div class="small">Version difference</div>
-                                }
-                                @if (Model.GetCompatibilityStatus(collection) == "incompatible")
-                                {
-                                    <div class="small">Major version mismatch</div>
-                                }
+                                <div>@collection.ModifiedAt.ToString("g")</div>
+                                <small class="text-muted">by @(collection.CreatedBy ?? "Unknown")</small>
                             </td>
                             <td>
-                                <a href="/Collections/Details?id=@collection.Id" class="btn btn-sm btn-outline-primary">Open</a>
-                                @if (!collection.IsLocked)
-                                {
-                                    <a href="/Collections/Edit?id=@collection.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
-                                }
-                                else
-                                {
-                                    <button class="btn btn-sm btn-outline-secondary" disabled>View</button>
-                                }
+                                @Html.Raw(Model.GetCompatibilityBadge(Model.GetCompatibilityStatus(collection)))
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a asp-page="./Details" asp-route-id="@collection.Id" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    @if (!collection.IsLocked)
+                                    {
+                                        <a asp-page="./Edit" asp-route-id="@collection.Id" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    }
+                                </div>
                             </td>
                         </tr>
                     }
@@ -146,6 +191,81 @@
         </div>
     </div>
 </div>
+
+<!-- Context Switcher Modal -->
+<div class="modal fade" id="contextModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Change Device Context</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="get" id="contextForm">
+                    <div class="mb-3">
+                        <label class="form-label">NPI Program</label>
+                        <select name="programId" id="contextProgram" class="form-select">
+                            @foreach(var p in Model.AvailablePrograms) {
+                                <option value="@p.Id" selected="@(Model.CurrentProgram?.Id == p.Id)">
+                                    @p.Name (v@p.MajorVersion)
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">LPI Version</label>
+                        <select name="lpiId" id="contextLpi" class="form-select">
+                           @foreach(var v in Model.AvailableLpiVersions) {
+                                <option value="@v.Id" selected="@(Model.CurrentLpiVersion?.Id == v.Id)">
+                                    @v.Version (@v.Stage)
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">PICCOLO Version</label>
+                        <select name="piccoloId" id="contextPiccolo" class="form-select">
+                            @foreach(var v in Model.AvailablePiccoloVersions) {
+                                <option value="@v.Id" selected="@(Model.CurrentPiccoloVersion?.Id == v.Id)">
+                                    @v.Version (@v.Stage)
+                                </option>
+                            }
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="submit" form="contextForm" class="btn btn-primary">Apply</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            $('#contextProgram').change(function() {
+                var programId = $(this).val();
+                if (programId) {
+                    $.getJSON('?handler=Versions', { programId: programId }, function(data) {
+                        var lpiSelect = $('#contextLpi');
+                        lpiSelect.empty();
+                        $.each(data.lpi, function(i, item) {
+                            lpiSelect.append($('<option>').text(item.text).attr('value', item.value));
+                        });
+
+                        var piccoloSelect = $('#contextPiccolo');
+                        piccoloSelect.empty();
+                        $.each(data.piccolo, function(i, item) {
+                            piccoloSelect.append($('<option>').text(item.text).attr('value', item.value));
+                        });
+                    });
+                }
+            });
+        });
+    </script>
+}
 
 @section Styles {
     <style>

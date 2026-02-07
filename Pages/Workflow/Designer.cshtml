@@ -1,0 +1,435 @@
+@page
+@model WebApp.Pages.Workflow.DesignerModel
+@{
+    ViewData["Title"] = "Workflow Designer";
+}
+
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-3">
+        <div class="col">
+            <h2><i class="bi bi-diagram-3"></i> Workflow Designer</h2>
+            <p class="text-muted">Create and edit operational flows with PICCOLO commands, loops, and conditionals</p>
+        </div>
+        <div class="col-auto">
+            <button type="button" class="btn btn-outline-secondary" onclick="collapseAll()">
+                <i class="bi bi-arrows-collapse"></i> Collapse All
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="expandAll()">
+                <i class="bi bi-arrows-expand"></i> Expand All
+            </button>
+            <button type="button" class="btn btn-success" onclick="saveWorkflow()">
+                <i class="bi bi-save"></i> Save Workflow
+            </button>
+        </div>
+    </div>
+
+    <!-- Workflow Canvas -->
+    <div class="workflow-canvas" id="workflowCanvas">
+        
+        <button class="btn btn-primary btn-lg w-100 mb-3" onclick="addOperation()">
+            <i class="bi bi-plus-circle"></i> Add Operation
+        </button>
+
+        <!-- Operation 1: Sample Device Wake-Up -->
+        <div class="operation-container mb-4">
+            <div class="card operation-card">
+                <div class="card-header operation-header" data-bs-toggle="collapse" data-bs-target="#operation1">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-chevron-down"></i>
+                            <strong>Operation 1: Device Wake-Up</strong>
+                            <span class="badge bg-primary ms-2">Sequential</span>
+                            <span class="badge bg-secondary ms-1">2 Steps</span>
+                            <span class="text-muted ms-2">Est: 50ms</span>
+                            <span class="badge bg-success ms-1"><i class="bi bi-check-circle"></i> Valid</span>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="event.stopPropagation(); editOperation(1)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="event.stopPropagation(); deleteOperation(1)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="operation1" class="collapse show">
+                    <div class="card-body">
+                        <!-- Operation Type Selector -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Operation Type:</label>
+                            <div class="btn-group" role="group">
+                                <input type="radio" class="btn-check" name="opType1" id="opSeq1" checked>
+                                <label class="btn btn-outline-primary" for="opSeq1">
+                                    <i class="bi bi-arrow-right-circle"></i> Sequential
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="opType1" id="opMulti1">
+                                <label class="btn btn-outline-primary" for="opMulti1">
+                                    <i class="bi bi-layers"></i> Multi-Command
+                                </label>
+                            </div>
+                            <small class="d-block text-muted mt-1">
+                                <i class="bi bi-info-circle"></i> Sequential executes steps one at a time
+                            </small>
+                        </div>
+
+                        <!-- Steps -->
+                        <div class="steps-container">
+                            <!-- Step 1.1 -->
+                            <div class="step-card mb-3">
+                                <div class="card">
+                                    <div class="card-header step-header" data-bs-toggle="collapse" data-bs-target="#step1-1">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <i class="bi bi-chevron-down"></i>
+                                                <strong>Step 1.1: WAKE_DEVICE Command</strong>
+                                                <span class="text-muted ms-2">Payload: [0x01, 0x00]</span>
+                                                <span class="text-muted">• Timeout: 1000ms</span>
+                                            </div>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">
+                                                    <i class="bi bi-arrow-up"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">
+                                                    <i class="bi bi-arrow-down"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation()">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="step1-1" class="collapse show">
+                                        <div class="card-body">
+                                            <div class="row mb-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Command</label>
+                                                    <select class="form-select">
+                                                        <option selected>WAKE_DEVICE</option>
+                                                        <option>READ_STATUS</option>
+                                                        <option>WRITE_CONFIG</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Timeout (ms)</label>
+                                                    <input type="number" class="form-control" value="1000">
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">Payload (hex bytes)</label>
+                                                <input type="text" class="form-control font-monospace" value="0x01, 0x00">
+                                            </div>
+
+                                            <!-- Decision Point -->
+                                            <div class="decision-point-card p-3 bg-light border rounded">
+                                                <h6 class="mb-3"><i class="bi bi-shuffle"></i> Decision Point</h6>
+                                                
+                                                <div class="mb-3">
+                                                    <label class="form-label text-success fw-bold">On Success:</label>
+                                                    <select class="form-select">
+                                                        <option selected>Continue to Next Step</option>
+                                                        <option>Skip to Step... (select)</option>
+                                                        <option>Skip to Operation... (select)</option>
+                                                        <option>Complete Operation</option>
+                                                        <option>Complete Workflow (Success)</option>
+                                                    </select>
+                                                </div>
+
+                                                <div class="mb-2">
+                                                    <label class="form-label text-danger fw-bold">On Failure:</label>
+                                                    <select class="form-select">
+                                                        <option selected>Retry This Step (max 3)</option>
+                                                        <option>Skip to Step... (select)</option>
+                                                        <option>Skip to Rollback Operation</option>
+                                                        <option>Fail Operation</option>
+                                                        <option>Fail Workflow</option>
+                                                    </select>
+                                                    <div class="mt-2">
+                                                        <label class="form-label small">Max Retries:</label>
+                                                        <input type="number" class="form-control form-control-sm" value="3" min="1" max="10" style="width: 80px;">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Add Step Button -->
+                            <div class="text-center my-2">
+                                <button class="btn btn-outline-primary btn-sm" onclick="addStep(1)">
+                                    <i class="bi bi-plus-circle"></i> Add Step Here
+                                </button>
+                            </div>
+
+                            <!-- Step 1.2 -->
+                            <div class="step-card mb-3">
+                                <div class="card">
+                                    <div class="card-header step-header" data-bs-toggle="collapse" data-bs-target="#step1-2">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <i class="bi bi-chevron-right"></i>
+                                                <strong>Step 1.2: Delay</strong>
+                                                <span class="text-muted ms-2">50ms</span>
+                                            </div>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">
+                                                    <i class="bi bi-arrow-up"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">
+                                                    <i class="bi bi-arrow-down"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation()">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-center mt-3">
+                            <button class="btn btn-primary" onclick="addStep(1)">
+                                <i class="bi bi-plus-circle"></i> Add Step to This Operation
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center my-4">
+            <button class="btn btn-outline-primary btn-lg" onclick="addOperation()">
+                <i class="bi bi-plus-circle"></i> Add Operation Here
+            </button>
+        </div>
+
+        <!-- Operation 2: Radio Detection Loop (Collapsed) -->
+        <div class="operation-container mb-4">
+            <div class="card operation-card">
+                <div class="card-header operation-header collapsed" data-bs-toggle="collapse" data-bs-target="#operation2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-chevron-right"></i>
+                            <strong>Operation 2: Radio Detection Loop</strong>
+                            <span class="badge bg-primary ms-2">Sequential</span>
+                            <span class="badge bg-secondary ms-1">1 Step</span>
+                            <span class="text-muted ms-2">Est: 500-5000ms</span>
+                            <span class="badge bg-warning text-dark ms-1"><i class="bi bi-arrow-repeat"></i> Loop (max 10)</span>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="event.stopPropagation()">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="event.stopPropagation()">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="operation2" class="collapse">
+                    <div class="card-body">
+                        <p class="text-muted">Operation details here...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center my-4">
+            <button class="btn btn-outline-primary btn-lg" onclick="addOperation()">
+                <i class="bi bi-plus-circle"></i> Add Operation Here
+            </button>
+        </div>
+
+        <!-- Operation 3: Configure & Verify (Collapsed) -->
+        <div class="operation-container mb-4">
+            <div class="card operation-card">
+                <div class="card-header operation-header collapsed" data-bs-toggle="collapse" data-bs-target="#operation3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-chevron-right"></i>
+                            <strong>Operation 3: Configure & Verify</strong>
+                            <span class="badge bg-info ms-2">Multi-Command</span>
+                            <span class="badge bg-secondary ms-1">3 Steps</span>
+                            <span class="text-muted ms-2">Est: 100ms</span>
+                            <span class="badge bg-light text-dark ms-1">Batched</span>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="event.stopPropagation()">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="event.stopPropagation()">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="operation3" class="collapse">
+                    <div class="card-body">
+                        <p class="text-muted">Multi-command operation details...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Execution Time Estimate -->
+    <div class="card mt-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-stopwatch"></i> Execution Time Estimate</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <strong>Best Case:</strong> 50ms<br/>
+                    <small class="text-muted">Radio immediately detectable</small>
+                </div>
+                <div class="col-md-4">
+                    <strong>Worst Case:</strong> 5050ms<br/>
+                    <small class="text-muted">10 iterations × 500ms + command time</small>
+                </div>
+                <div class="col-md-4">
+                    <strong>Average:</strong> ~1500ms<br/>
+                    <small class="text-muted">Typical execution</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="mt-4 mb-5">
+        <button class="btn btn-success btn-lg" onclick="saveWorkflow()">
+            <i class="bi bi-save"></i> Save Workflow
+        </button>
+        <button class="btn btn-outline-primary btn-lg" onclick="validateWorkflow()">
+            <i class="bi bi-check-circle"></i> Validate
+        </button>
+        <button class="btn btn-outline-secondary btn-lg" onclick="exportWorkflow()">
+            <i class="bi bi-download"></i> Export as Code
+        </button>
+        <button class="btn btn-outline-danger btn-lg" onclick="discardChanges()">
+            <i class="bi bi-x-circle"></i> Discard Changes
+        </button>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .workflow-canvas {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 500px;
+        }
+        
+        .operation-card {
+            border: 2px solid #0d6efd;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .operation-header {
+            cursor: pointer;
+            background-color: #e7f1ff;
+            font-weight: 500;
+            padding: 15px;
+        }
+        
+        .operation-header:hover {
+            background-color: #cfe2ff;
+        }
+        
+        .operation-header.collapsed {
+            background-color: #f8f9fa;
+        }
+        
+        .step-header {
+            cursor: pointer;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .step-header:hover {
+            background-color: #e9ecef;
+        }
+        
+        .step-card .card {
+            border-left: 4px solid #198754;
+        }
+        
+        .decision-point-card {
+            border-left: 4px solid #0dcaf0 !important;
+        }
+        
+        .operation-header i.bi-chevron-down,
+        .operation-header i.bi-chevron-right,
+        .step-header i.bi-chevron-down,
+        .step-header i.bi-chevron-right {
+            transition: transform 0.3s;
+        }
+        
+        .operation-header.collapsed i.bi-chevron-down {
+            transform: rotate(-90deg);
+        }
+        
+        .step-header.collapsed i.bi-chevron-down {
+            transform: rotate(-90deg);
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        function collapseAll() {
+            document.querySelectorAll('.collapse.show').forEach(el => {
+                bootstrap.Collapse.getInstance(el)?.hide() || new bootstrap.Collapse(el, {toggle: false}).hide();
+            });
+        }
+        
+        function expandAll() {
+            document.querySelectorAll('.collapse:not(.show)').forEach(el => {
+                bootstrap.Collapse.getInstance(el)?.show() || new bootstrap.Collapse(el, {toggle: false}).show();
+            });
+        }
+        
+        function addOperation() {
+            alert('Add Operation dialog would appear here');
+        }
+        
+        function addStep(operationId) {
+            alert(`Add Step to Operation ${operationId} dialog would appear here`);
+        }
+        
+        function editOperation(id) {
+            alert(`Edit Operation ${id}`);
+        }
+        
+        function deleteOperation(id) {
+            if (confirm(`Delete Operation ${id}?`)) {
+                alert('Operation deleted');
+            }
+        }
+        
+        function saveWorkflow() {
+            alert('Workflow saved successfully!');
+        }
+        
+        function validateWorkflow() {
+            alert('Workflow validation: All operations valid ✓');
+        }
+        
+        function exportWorkflow() {
+            alert('Export workflow as code dialog would appear here');
+        }
+        
+        function discardChanges() {
+            if (confirm('Discard all unsaved changes?')) {
+                location.reload();
+            }
+        }
+    </script>
+}

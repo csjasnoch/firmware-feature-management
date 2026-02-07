@@ -1,0 +1,27 @@
+@model WebApp.Models.FeatureCollection
+
+@if (Model != null)
+{
+    <!-- Context Identity Header -->
+    <div class="bg-dark text-white py-2 px-3 border-bottom border-secondary mb-0 sticky-top shadow-sm" style="z-index: 1020;">
+        <div class="container-fluid d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <span class="badge bg-primary me-3 align-self-center" style="font-size: 0.75rem; letter-spacing: 1px;">CONTEXT</span>
+                <div class="h6 mb-0 font-monospace d-flex align-items-center">
+                    <span class="text-info fw-bold me-2"><i class="bi bi-cpu me-1"></i>@Model.TargetProgram?.Name</span>
+                    <span class="text-muted mx-2">|</span>
+                    <span class="text-light me-2" title="LPI Version">LPI <span class="text-warning">@Model.RequiredLpiVersion?.Version</span></span>
+                    <span class="text-muted mx-2">|</span>
+                    <span class="text-light" title="PICCOLO Version">PICCOLO <span class="text-warning">@Model.RequiredPiccoloVersion?.Version</span></span>
+                </div>
+                <span class="ms-3 badge bg-secondary bg-opacity-50 text-white-50 border border-secondary">@Model.Name</span>
+            </div>
+            
+            <div class="d-flex align-items-center">
+                 <a href="/Collections/Index" class="btn btn-sm btn-outline-light text-nowrap" style="font-size: 0.8rem;">
+                    <i class="bi bi-grid-3x3-gap me-1"></i> Switch Space
+                </a>
+            </div>
+        </div>
+    </div>
+}

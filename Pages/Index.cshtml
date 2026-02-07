@@ -1,52 +1,388 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home";
+    ViewData["Title"] = "Dashboard";
 }
 
-<div class="text-center mt-5">
-    <h1 class="display-4">Firmware Feature Management System</h1>
-    <p class="lead">Manage features, collections, and firmware versions across NPI programs</p>
+<div class="mb-4">
+    <h1 class="display-5">Firmware Feature Management</h1>
+    <p class="text-muted">PICCOLO-based feature management across NPI programs and firmware versions</p>
 </div>
 
-<div class="row mt-5">
-    <div class="col-md-4">
-        <div class="card h-100">
+<!-- Global Context Switcher -->
+<div class="card mb-4 border-primary">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-gear"></i> Global Firmware Context</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <label class="form-label fw-bold">NPI Program</label>
+                <select class="form-select" id="npiProgramSelect">
+                    @foreach (var program in Model.NpiPrograms)
+                    {
+                        <option value="@program.Id" selected="@(program.Id == Model.SelectedNpiProgramId)">
+                            @program.Name (@program.HardwareGen) - @program.Status
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">LPI Version</label>
+                <select class="form-select" id="lpiVersionSelect">
+                    @foreach (var version in Model.LpiVersions)
+                    {
+                        <option value="@version.Id" data-npi="@version.NpiProgramId" selected="@(version.Id == Model.SelectedLpiVersionId)">
+                            @version.Version - @Model.GetStageDisplayName(version.Stage)
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">PICCOLO Version</label>
+                <select class="form-select" id="piccoloVersionSelect">
+                    @foreach (var version in Model.PiccoloVersions)
+                    {
+                        <option value="@version.Id" data-npi="@version.NpiProgramId" selected="@(version.Id == Model.SelectedPiccoloVersionId)">
+                            @version.Version - @Model.GetStageDisplayName(version.Stage)
+                        </option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="mt-3">
+            <button class="btn btn-primary" onclick="applyContext()">
+                <i class="bi bi-check-circle"></i> Apply Context
+            </button>
+            <small class="text-muted ms-3">
+                <i class="bi bi-info-circle"></i> Context applies to all features and collections
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-start border-primary border-4">
             <div class="card-body">
-                <h5 class="card-title">📦 Collections</h5>
-                <p class="card-text">
-                    Organize features into collections tied to specific NPI programs and firmware versions.
-                    Support for Eagan, Elko, Edina, Fridley, and Chaska programs.
-                </p>
-                <a href="/Collections" class="btn btn-primary">View Collections</a>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted text-uppercase mb-1">Features</h6>
+                        <h2 class="mb-0">@Model.TotalFeatures</h2>
+                    </div>
+                    <div class="text-primary" style="font-size: 2rem;">
+                        <i class="bi bi-lightning"></i>
+                    </div>
+                </div>
+                <small class="text-muted">PICCOLO-based features</small>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card h-100">
+    <div class="col-md-3">
+        <div class="card border-start border-success border-4">
             <div class="card-body">
-                <h5 class="card-title">⚙️ Features</h5>
-                <p class="card-text">
-                    Create and manage features with LPI parameters and PICCOLO commands.
-                    Includes directionality, noise reduction, and device initialization features.
-                </p>
-                <a href="/Features" class="btn btn-primary">View Features</a>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted text-uppercase mb-1">Collections</h6>
+                        <h2 class="mb-0">@Model.TotalCollections</h2>
+                    </div>
+                    <div class="text-success" style="font-size: 2rem;">
+                        <i class="bi bi-collection"></i>
+                    </div>
+                </div>
+                <small class="text-muted">Version-aware collections</small>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card h-100">
+    <div class="col-md-3">
+        <div class="card border-start border-info border-4">
             <div class="card-body">
-                <h5 class="card-title">🔧 Firmware Versions</h5>
-                <p class="card-text">
-                    Browse firmware versions across the release lifecycle: T0 (Test), T1 (Alpha), T2 (Beta), T3 (Released).
-                    Track compatibility and version changes.
-                </p>
-                <a href="#" class="btn btn-primary">View Versions</a>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted text-uppercase mb-1">NPI Programs</h6>
+                        <h2 class="mb-0">@Model.TotalNpiPrograms</h2>
+                    </div>
+                    <div class="text-info" style="font-size: 2rem;">
+                        <i class="bi bi-diagram-3"></i>
+                    </div>
+                </div>
+                <small class="text-muted">Hardware generations</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-start border-warning border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted text-uppercase mb-1">Firmware Versions</h6>
+                        <h2 class="mb-0">@Model.TotalVersions</h2>
+                    </div>
+                    <div class="text-warning" style="font-size: 2rem;">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                </div>
+                <small class="text-muted">LPI + PICCOLO versions</small>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Firmware Version Matrix -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-table"></i> Firmware Version Matrix</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr class="table-light">
+                        <th>NPI Program</th>
+                        <th>Hardware Gen</th>
+                        <th>LPI Versions</th>
+                        <th>PICCOLO Versions</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var program in Model.NpiPrograms)
+                    {
+                        var lpiVersions = Model.LpiVersions.Where(v => v.NpiProgramId == program.Id).ToList();
+                        var piccoloVersions = Model.PiccoloVersions.Where(v => v.NpiProgramId == program.Id).ToList();
+                        <tr>
+                            <td><strong>@program.Name</strong></td>
+                            <td><span class="badge bg-secondary">@program.HardwareGen</span></td>
+                            <td>
+                                @if (lpiVersions.Any())
+                                {
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach (var version in lpiVersions.OrderBy(v => v.Version))
+                                        {
+                                            <span class="badge @Model.GetStageBadgeClass(version.Stage)" title="@version.Version">
+                                                @version.Version
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">None</span>
+                                }
+                            </td>
+                            <td>
+                                @if (piccoloVersions.Any())
+                                {
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach (var version in piccoloVersions.OrderBy(v => v.Version))
+                                        {
+                                            <span class="badge @Model.GetStageBadgeClass(version.Stage)" title="@version.Version">
+                                                @version.Version
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">None</span>
+                                }
+                            </td>
+                            <td>
+                                @if (program.Status == ProgramStatus.Released)
+                                {
+                                    <span class="badge bg-success">Released</span>
+                                }
+                                else if (program.Status == ProgramStatus.Active)
+                                {
+                                    <span class="badge bg-primary">Active</span>
+                                }
+                                else if (program.Status == ProgramStatus.Deprecated)
+                                {
+                                    <span class="badge bg-warning text-dark">Deprecated</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-3">
+            <small class="text-muted">
+                <span class="badge bg-secondary">T0 Test</span>
+                <span class="badge bg-warning text-dark">T1 Alpha</span>
+                <span class="badge bg-info">T2 Beta</span>
+                <span class="badge bg-success">T3 Released</span>
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- Feature Compatibility Heatmap -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-grid-3x3-gap"></i> Feature Compatibility Heatmap</h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">
+            Compatibility status for each feature across NPI programs. 
+            <span class="badge bg-success">✓</span> Compatible 
+            <span class="badge bg-warning text-dark">⚠️</span> Partial 
+            <span class="badge bg-info">🧪</span> Experimental 
+            <span class="badge bg-danger">❌</span> Incompatible
+        </p>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr class="table-light">
+                        <th style="width: 250px;">Feature</th>
+                        @foreach (var program in Model.NpiPrograms)
+                        {
+                            <th class="text-center">@program.Name<br/><small class="text-muted">@program.HardwareGen</small></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var feature in Model.Features.Take(10))
+                    {
+                        <tr>
+                            <td>
+                                <strong>@feature.Name</strong><br/>
+                                <small class="text-muted">@feature.Parameters.Count params</small>
+                            </td>
+                            @foreach (var program in Model.NpiPrograms)
+                            {
+                                var status = Model.FeatureCompatibilityMatrix.ContainsKey(feature.Id) && 
+                                           Model.FeatureCompatibilityMatrix[feature.Id].ContainsKey(program.Id) 
+                                           ? Model.FeatureCompatibilityMatrix[feature.Id][program.Id] 
+                                           : "unknown";
+                                
+                                <td class="text-center @(status == "compatible" ? "table-success" : 
+                                                         status == "partial" ? "table-warning" : 
+                                                         status == "experimental" ? "table-info" : 
+                                                         status == "incompatible" ? "table-danger" : "")">
+                                    @if (status == "compatible")
+                                    {
+                                        <span class="badge bg-success">✓</span>
+                                    }
+                                    else if (status == "partial")
+                                    {
+                                        <span class="badge bg-warning text-dark">⚠️</span>
+                                    }
+                                    else if (status == "experimental")
+                                    {
+                                        <span class="badge bg-info">🧪</span>
+                                    }
+                                    else if (status == "incompatible")
+                                    {
+                                        <span class="badge bg-danger">❌</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">?</span>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (Model.Features.Count > 10)
+        {
+            <div class="mt-2">
+                <small class="text-muted">Showing 10 of @Model.Features.Count features. <a href="/Features">View all features →</a></small>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-collection"></i> Collections</h5>
+                <p class="card-text">
+                    Organize features into version-aware collections tied to specific NPI programs and firmware versions.
+                </p>
+                <a href="/Collections" class="btn btn-primary">Manage Collections</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-lightning"></i> Features</h5>
+                <p class="card-text">
+                    Create and manage PICCOLO features with LPI parameter groups and command sequences.
+                </p>
+                <a href="/Features" class="btn btn-primary">Manage Features</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-diagram-2"></i> Workflows</h5>
+                <p class="card-text">
+                    Design operational flows with PICCOLO commands, loops, and conditional logic.
+                </p>
+                <a href="/Workflow" class="btn btn-primary">Design Workflows</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function applyContext() {
+            const npiId = document.getElementById('npiProgramSelect').value;
+            const lpiId = document.getElementById('lpiVersionSelect').value;
+            const piccoloId = document.getElementById('piccoloVersionSelect').value;
+            
+            // Store in session storage for cross-page persistence
+            sessionStorage.setItem('selectedNpiProgramId', npiId);
+            sessionStorage.setItem('selectedLpiVersionId', lpiId);
+            sessionStorage.setItem('selectedPiccoloVersionId', piccoloId);
+            
+            // Show confirmation
+            alert('Firmware context applied! This context will be used across all pages.');
+        }
+        
+        // Filter version dropdowns when NPI program changes
+        document.getElementById('npiProgramSelect').addEventListener('change', function() {
+            const selectedNpi = this.value;
+            
+            // Filter LPI versions
+            const lpiSelect = document.getElementById('lpiVersionSelect');
+            Array.from(lpiSelect.options).forEach(option => {
+                if (option.dataset.npi === selectedNpi || !option.dataset.npi) {
+                    option.style.display = '';
+                } else {
+                    option.style.display = 'none';
+                }
+            });
+            
+            // Filter PICCOLO versions
+            const piccoloSelect = document.getElementById('piccoloVersionSelect');
+            Array.from(piccoloSelect.options).forEach(option => {
+                if (option.dataset.npi === selectedNpi || !option.dataset.npi) {
+                    option.style.display = '';
+                } else {
+                    option.style.display = 'none';
+                }
+            });
+            
+            // Select first visible option in each dropdown
+            lpiSelect.value = Array.from(lpiSelect.options).find(o => o.style.display !== 'none')?.value || '';
+            piccoloSelect.value = Array.from(piccoloSelect.options).find(o => o.style.display !== 'none')?.value || '';
+        });
+        
+        // Trigger initial filtering on page load
+        document.getElementById('npiProgramSelect').dispatchEvent(new Event('change'));
+    </script>
+}
 
 <div class="row mt-5">
     <div class="col-md-12">

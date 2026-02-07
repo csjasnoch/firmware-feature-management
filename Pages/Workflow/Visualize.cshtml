@@ -1,0 +1,130 @@
+@page
+@model WebApp.Pages.Workflow.VisualizeModel
+@{
+    ViewData["Title"] = "Workflow Visualization";
+}
+
+<partial name="_ContextIdentity" model="Model.Collection" />
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="display-6">@Model.Flow.Name</h1>
+            <p class="lead text-muted">@Model.Flow.Description</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+             <a href="/Features?collectionId=@Model.Collection?.Id" class="btn btn-outline-primary">
+                <i class="bi bi-collection me-1"></i> Feature Set
+            </a>
+            <a href="/Features/Edit?id=@Model.Flow.FeatureId" class="btn btn-info text-white shadow-sm" title="Edit Feature Settings">
+                <i class="bi bi-gear-fill"></i>
+            </a>
+            <span class="badge bg-primary d-none d-md-inline-block opacity-75">Validation Mode</span>
+        </div>
+    </div>
+
+    <div class="workflow-container">
+        @foreach (var op in Model.Flow.Operations)
+        {
+            <div class="card mb-4 border-0 shadow-sm">
+                <div class="card-header bg-light border-bottom-0 d-flex justify-content-between align-items-center py-3">
+                    <h5 class="mb-0 text-primary">
+                        <i class="bi bi-gear-wide-connected me-2"></i>@op.Name
+                    </h5>
+                    <span class="badge bg-secondary">@op.Type</span>
+                </div>
+                <div class="card-body position-relative">
+                    <!-- Vertical Line for Flow -->
+                    <div class="position-absolute start-0 top-0 bottom-0 ms-4 border-start border-2 border-secondary opacity-25" style="left: 1rem;"></div>
+
+                    @foreach (var step in op.Steps)
+                    {
+                        var isLastStep = step == op.Steps.Last();
+                        var cardBorderClass = step.Type switch {
+                            "Decision" => "border-warning",
+                            "Delay" => "border-info",
+                            "Calculation" => "border-success",
+                            _ => "border-light"
+                        };
+                        var iconClass = step.Type switch {
+                            "Decision" => "bi-sign-junction-split", // or bi-question-diamond
+                            "Delay" => "bi-hourglass-split",
+                            "Calculation" => "bi-calculator",
+                            "Command" => "bi-terminal",
+                            _ => "bi-circle"
+                        };
+
+                        <div class="d-flex mb-4 position-relative">
+                            <div class="me-3 d-flex flex-column align-items-center" style="z-index: 1;">
+                                <div class="badge rounded-pill bg-dark py-2 px-2 shadow-sm" style="min-width: 40px;">@step.StepNumber</div>
+                            </div>
+                            
+                            <div class="card flex-grow-1 @cardBorderClass shadow-sm operational-step-card">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <h6 class="card-title fw-bold">
+                                            <i class="bi @iconClass me-2"></i>@step.Title
+                                        </h6>
+                                        <span class="badge bg-light text-dark border">@step.Type</span>
+                                    </div>
+                                    <p class="text-muted small mb-2">@step.Description</p>
+
+                                    <!-- Attributes Grid -->
+                                    @if (step.Attributes.Any())
+                                    {
+                                        <div class="bg-light p-2 rounded mb-2 font-monospace small">
+                                            @foreach (var attr in step.Attributes)
+                                            {
+                                                <div class="d-flex justify-content-between border-bottom border-white">
+                                                    <span class="text-muted">@attr.Key:</span>
+                                                    <span class="fw-bold text-dark">@attr.Value</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+
+                                    <!-- Branches / Forks -->
+                                    @if(step.Branches.Any())
+                                    {
+                                        <div class="mt-3">
+                                            <h6 class="small fw-bold text-uppercase text-muted border-bottom pb-1">Flow Logic</h6>
+                                            <div class="row g-2">
+                                                @foreach(var branch in step.Branches)
+                                                {
+                                                    var branchColor = branch.IsErrorPath ? "danger" : (branch.Label == "Pass" || branch.Label == "Ack" || branch.Label == "Match" ? "success" : "primary");
+                                                    <div class="col-md-6">
+                                                        <div class="p-2 border rounded border-@branchColor bg-soft-@branchColor position-relative h-100">
+                                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                                <span class="badge bg-@branchColor">@branch.Label</span>
+                                                                <small class="text-muted" style="font-size: 0.7rem;">Fork</small>
+                                                            </div>
+                                                            <div class="small fw-bold text-dark">@branch.Description</div>
+                                                            <div class="mt-1 small text-@branchColor">
+                                                                <i class="bi bi-arrow-return-right me-1"></i>@branch.Action
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .bg-soft-danger { background-color: #fff5f5; }
+    .bg-soft-success { background-color: #f0fff4; }
+    .bg-soft-primary { background-color: #f0f7ff; }
+    
+    .operational-step-card:hover {
+        transform: translateY(-2px);
+        transition: transform 0.2s;
+    }
+</style>

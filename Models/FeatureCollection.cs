@@ -23,6 +23,7 @@ public class FeatureCollection
     // Metadata
     public CollectionVisibility Visibility { get; set; }
     public string Owner { get; set; } = string.Empty;
+    public string CreatedBy { get; set; } = string.Empty;
     public List<string> SharedWith { get; set; } = new(); // User IDs or team names
     public DateTime CreatedAt { get; set; }
     public DateTime ModifiedAt { get; set; }

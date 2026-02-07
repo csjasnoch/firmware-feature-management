@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using WebApp.Models;
 using WebApp.Services;
@@ -18,60 +19,102 @@ public class IndexModel : PageModel
     public FirmwareVersion? CurrentLpiVersion { get; set; }
     public FirmwareVersion? CurrentPiccoloVersion { get; set; }
 
-    public void OnGet()
-    {
-        Collections = _dataService.GetCollections();
-        
-        // Set current context (Eagan 3.2.1 / 2.5.0)
-        CurrentProgram = _dataService.GetNpiPrograms().FirstOrDefault(p => p.Name == "Eagan");
-        if (CurrentProgram != null)
-        {
-            CurrentLpiVersion = _dataService.GetLpiVersions(CurrentProgram.Id)
-                .FirstOrDefault(v => v.Version == "3.2.1");
-            CurrentPiccoloVersion = _dataService.GetPiccoloVersions(CurrentProgram.Id)
-                .FirstOrDefault(v => v.Version == "2.5.0");
-        }
-    }
+    // Dropdown lists for context switcher
+    public List<NpiProgram> AvailablePrograms { get; set; } = new();
+    public List<FirmwareVersion> AvailableLpiVersions { get; set; } = new();
+    public List<FirmwareVersion> AvailablePiccoloVersions { get; set; } = new();
 
+    // Compatibility checking
     public string GetCompatibilityStatus(FeatureCollection collection)
     {
-        if (CurrentLpiVersion == null || CurrentPiccoloVersion == null)
-            return "unknown";
+        if (CurrentLpiVersion == null || CurrentPiccoloVersion == null) return "unknown";
 
-        var lpiMatch = collection.RequiredLpiVersion?.Version == CurrentLpiVersion.Version;
-        var piccoloMatch = collection.RequiredPiccoloVersion?.Version == CurrentPiccoloVersion.Version;
+        bool lpiMatch = collection.RequiredLpiVersionId == CurrentLpiVersion.Id;
+        bool piccoloMatch = collection.RequiredPiccoloVersionId == CurrentPiccoloVersion.Id;
 
-        if (lpiMatch && piccoloMatch)
-            return "compatible";
-        
-        var lpiMajorMatch = collection.RequiredLpiVersion?.Version.Split('.')[0] == CurrentLpiVersion.Version.Split('.')[0];
-        var piccoloMajorMatch = collection.RequiredPiccoloVersion?.Version.Split('.')[0] == CurrentPiccoloVersion.Version.Split('.')[0];
-        
-        if (lpiMajorMatch && piccoloMajorMatch)
-            return "partial";
-        
+        // Check if versions are test builds
+        bool hasTestVersions = collection.RequiredLpiVersion?.Stage == FirmwareReleaseStage.T0_Test ||
+                                collection.RequiredPiccoloVersion?.Stage == FirmwareReleaseStage.T0_Test;
+
+        if (lpiMatch && piccoloMatch) return "compatible";
+        if (hasTestVersions) return "test";
+        if (lpiMatch || piccoloMatch) return "partial";
         return "incompatible";
     }
 
-    public string GetCompatibilityIcon(FeatureCollection collection)
+    public string GetCompatibilityBadge(string status)
     {
-        return GetCompatibilityStatus(collection) switch
+        return status switch
         {
-            "compatible" => "✓",
-            "partial" => "⚠️",
-            "incompatible" => "❌",
-            _ => collection.RequiredLpiVersion?.Stage == FirmwareReleaseStage.T0_Test ? "🧪" : "?"
+            "compatible" => "<span class='badge bg-success'><i class='bi bi-check-circle'></i> Compatible</span>",
+            "partial" => "<span class='badge bg-warning text-dark'><i class='bi bi-exclamation-triangle'></i> Partial</span>",
+            "test" => "<span class='badge bg-info'><i class='bi bi-flask'></i> Test Build</span>",
+            "incompatible" => "<span class='badge bg-danger'><i class='bi bi-x-circle'></i> Incompatible</span>",
+            _ => "<span class='badge bg-secondary'><i class='bi bi-question-circle'></i> Unknown</span>"
         };
     }
 
-    public string GetCompatibilityClass(FeatureCollection collection)
+    public string GetStageBadgeClass(FirmwareReleaseStage stage)
     {
-        return GetCompatibilityStatus(collection) switch
+        return stage switch
         {
-            "compatible" => "text-success",
-            "partial" => "text-warning",
-            "incompatible" => "text-danger",
-            _ => "text-muted"
+            FirmwareReleaseStage.T0_Test => "bg-secondary",
+            FirmwareReleaseStage.T1_Alpha => "bg-warning text-dark",
+            FirmwareReleaseStage.T2_Beta => "bg-info",
+            FirmwareReleaseStage.T3_Released => "bg-success",
+            _ => "bg-secondary"
         };
+    }
+
+    public void OnGet(Guid? programId, Guid? lpiId, Guid? piccoloId)
+    {
+        Collections = _dataService.GetCollections();
+        
+        // Load context options
+        AvailablePrograms = _dataService.GetNpiPrograms();
+
+        // Determine Program
+        if (programId.HasValue)
+            CurrentProgram = AvailablePrograms.FirstOrDefault(p => p.Id == programId.Value);
+        else
+            CurrentProgram = AvailablePrograms.FirstOrDefault(p => p.Name == "Eagan");
+
+        if (CurrentProgram != null)
+        {
+            AvailableLpiVersions = _dataService.GetLpiVersions(CurrentProgram.Id);
+            AvailablePiccoloVersions = _dataService.GetPiccoloVersions(CurrentProgram.Id);
+
+            // Determine LPI Version
+            if (lpiId.HasValue)
+                CurrentLpiVersion = AvailableLpiVersions.FirstOrDefault(v => v.Id == lpiId.Value);
+            
+            if (CurrentLpiVersion == null)
+            {
+                // Default logic
+                 CurrentLpiVersion = AvailableLpiVersions.FirstOrDefault(v => v.Version == "3.2.1") 
+                                     ?? AvailableLpiVersions.FirstOrDefault();
+            }
+
+            // Determine Piccolo Version
+             if (piccoloId.HasValue)
+                CurrentPiccoloVersion = AvailablePiccoloVersions.FirstOrDefault(v => v.Id == piccoloId.Value);
+
+             if (CurrentPiccoloVersion == null)
+             {
+                 CurrentPiccoloVersion = AvailablePiccoloVersions.FirstOrDefault(v => v.Version == "2.5.0")
+                                         ?? AvailablePiccoloVersions.FirstOrDefault();
+             }
+        }
+    }
+
+    public JsonResult OnGetVersions(Guid programId)
+    {
+        var lpi = _dataService.GetLpiVersions(programId)
+            .Select(v => new { value = v.Id, text = $"{v.Version} ({v.Stage})" });
+            
+        var piccolo = _dataService.GetPiccoloVersions(programId)
+            .Select(v => new { value = v.Id, text = $"{v.Version} ({v.Stage})" });
+            
+        return new JsonResult(new { lpi, piccolo });
     }
 }

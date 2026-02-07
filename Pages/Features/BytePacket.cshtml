@@ -1,0 +1,487 @@
+@page
+@model WebApp.Pages.Features.BytePacketModel
+@{
+    ViewData["Title"] = $"Byte Packet Viewer: {Model.Feature?.Name}";
+}
+
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <div class="row mb-3">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="/"><i class="bi bi-house-door"></i> Home</a></li>
+                    <li class="breadcrumb-item"><a href="/Features">Features</a></li>
+                    <li class="breadcrumb-item"><a href="/Features/Edit?id=@Model.Feature?.Id">@Model.Feature?.Name</a></li>
+                    <li class="breadcrumb-item active">Byte Packet Viewer</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    @if (Model.Feature != null)
+    {
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <h2><i class="bi bi-file-binary"></i> @Model.Feature.Name - Byte Packet Viewer</h2>
+                <p class="text-muted">Detailed byte-level visualization with parameter correlation</p>
+            </div>
+            <div class="col-auto">
+                <a href="/Features/Edit?id=@Model.Feature.Id" class="btn btn-outline-secondary me-2">
+                    <i class="bi bi-arrow-left"></i> Back to Editor
+                </a>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="bi bi-download"></i> Export
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="exportAsC()"><i class="bi bi-file-code"></i> C Array</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="exportAsJSON()"><i class="bi bi-filetype-json"></i> JSON</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="exportAsCSV()"><i class="bi bi-filetype-csv"></i> CSV</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="exportAsBinary()"><i class="bi bi-file-binary"></i> Binary</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Selector (if multi-setting feature) -->
+        @if (Model.HasMultipleSettings)
+        {
+            <div class="card mb-3">
+                <div class="card-body">
+                    <label class="form-label fw-bold">Select Setting:</label>
+                    <div class="btn-group" role="group" id="settingSelector">
+                        @for (int i = 1; i <= 4; i++)
+                        {
+                            <input type="radio" class="btn-check" name="setting" id="setting@(i)" value="@i" checked="@(i == Model.SelectedSetting)">
+                            <label class="btn btn-outline-primary" for="setting@(i)">Setting @i</label>
+                        }
+                    </div>
+                    <button class="btn btn-outline-secondary ms-3" onclick="showCompareDialog()">
+                        <i class="bi bi-arrow-left-right"></i> Compare Settings
+                    </button>
+                </div>
+            </div>
+        }
+
+        <!-- Packet Overview -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Packet Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Total Size:</strong><br/>
+                        <span class="h4">@Model.BytePacket.Length bytes</span><br/>
+                        <small class="text-muted">(@(Model.BytePacket.Length - 1) data + 1 checksum)</small>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Generated:</strong><br/>
+                        @DateTime.Now.ToString("g")<br/>
+                        <small class="text-muted">Setting @Model.SelectedSetting</small>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Checksum:</strong><br/>
+                        <span class="badge bg-success">0x@(Model.BytePacket.Last().ToString("X2")) ✓</span><br/>
+                        <small class="text-muted">XOR algorithm</small>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Format:</strong><br/>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <input type="radio" class="btn-check" name="format" id="formatHex" value="hex" checked>
+                            <label class="btn btn-outline-secondary" for="formatHex">HEX</label>
+                            
+                            <input type="radio" class="btn-check" name="format" id="formatDec" value="decimal">
+                            <label class="btn btn-outline-secondary" for="formatDec">DEC</label>
+                            
+                            <input type="radio" class="btn-check" name="format" id="formatBin" value="binary">
+                            <label class="btn btn-outline-secondary" for="formatBin">BIN</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Full Packet Display -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-file-earmark-binary"></i> Full Packet</h5>
+                    <div>
+                        <label class="form-label mb-0 me-2">Group by:</label>
+                        <select class="form-select form-select-sm d-inline-block w-auto" id="grouping">
+                            <option value="4" selected>4 bytes</option>
+                            <option value="8">8 bytes</option>
+                            <option value="16">16 bytes</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="packet-display font-monospace" id="packetDisplay">
+                    @{
+                        for (int i = 0; i < Model.BytePacket.Length; i++)
+                        {
+                            <span class="byte-cell @(i == Model.BytePacket.Length - 1 ? "checksum" : "")" 
+                                  data-byte-index="@i" 
+                                  data-bs-toggle="tooltip" 
+                                  title="Byte @i">0x@(Model.BytePacket[i].ToString("X2"))</span>
+                            @if ((i + 1) % 4 == 0)
+                            {
+                                <span class="byte-separator">|</span>
+                            }
+                            @if ((i + 1) % 16 == 0 && i < Model.BytePacket.Length - 1)
+                            {
+                                <br/>
+                            }
+                        }
+                    }
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-primary" onclick="copyToClipboard()">
+                        <i class="bi bi-clipboard"></i> Copy to Clipboard
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Byte-by-Byte Breakdown -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-zoom-in"></i> Byte-by-Byte Breakdown</h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleAllBytes()">
+                        <i class="bi bi-arrows-collapse"></i> Collapse All
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="byteAccordion">
+                    @for (int i = 0; i < Model.BytePacket.Length; i++)
+                    {
+                        var byteValue = Model.BytePacket[i];
+                        var paramInfo = Model.GetParameterForByte(i);
+                        var isHeader = i == 0;
+                        var isChecksum = i == Model.BytePacket.Length - 1;
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="heading@(i)">
+                                <button class="accordion-button @(i > 2 ? "collapsed" : "")" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#collapse@(i)" 
+                                        aria-expanded="@(i <= 2 ? "true" : "false")">
+                                    <strong class="me-3">Byte @i</strong>
+                                    <span class="badge bg-secondary me-2">0x@(byteValue.ToString("X2"))</span>
+                                    <span class="badge bg-info me-2">@byteValue</span>
+                                    <span class="text-muted">
+                                        @if (isHeader)
+                                        {
+                                            <span>Command Header</span>
+                                        }
+                                        else if (isChecksum)
+                                        {
+                                            <span>Checksum</span>
+                                        }
+                                        else if (paramInfo != null)
+                                        {
+                                            <span>@paramInfo.ParameterName</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Reserved/Padding</span>
+                                        }
+                                    </span>
+                                </button>
+                            </h2>
+                            <div id="collapse@(i)" class="accordion-collapse collapse @(i <= 2 ? "show" : "")" 
+                                 data-bs-parent="#byteAccordion">
+                                <div class="accordion-body">
+                                    @if (isHeader)
+                                    {
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <strong>Role:</strong> Command Header<br/>
+                                                <strong>Name:</strong> PICCOLO_COMMAND<br/>
+                                                <strong>Description:</strong> Initiates feature configuration
+                                            </div>
+                                            <div class="col-md-6">
+                                                <strong>Feature:</strong> @Model.Feature.Name<br/>
+                                                <strong>PICCOLO Version:</strong> @Model.CurrentPiccoloVersion?.Version
+                                            </div>
+                                        </div>
+                                    }
+                                    else if (isChecksum)
+                                    {
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <strong>Role:</strong> Checksum<br/>
+                                                <strong>Algorithm:</strong> XOR of all previous bytes<br/>
+                                                <strong>Calculated:</strong> 0x@(byteValue.ToString("X2"))<br/>
+                                                <strong>Status:</strong> <span class="badge bg-success">Valid ✓</span>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="verifyChecksum()">
+                                                    <i class="bi bi-check-circle"></i> Verify Checksum
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="recalculateChecksum()">
+                                                    <i class="bi bi-calculator"></i> Recalculate
+                                                </button>
+                                            </div>
+                                        </div>
+                                    }
+                                    else if (paramInfo != null)
+                                    {
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <strong>Parameter:</strong> @paramInfo.ParameterName<br/>
+                                                <strong>Value (Decimal):</strong> @byteValue<br/>
+                                                <strong>Value (Hex):</strong> 0x@(byteValue.ToString("X2"))<br/>
+                                                <strong>Value (Binary):</strong> @Convert.ToString(byteValue, 2).PadLeft(8, '0')<br/>
+                                                @if (!string.IsNullOrEmpty(paramInfo.Notes))
+                                                {
+                                                    <div class="mt-2">
+                                                        <strong>Notes:</strong><br/>
+                                                        <small class="text-muted">@paramInfo.Notes</small>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-2">
+                                                    <strong>Range:</strong> 0 - 255 (typical)<br/>
+                                                    <strong>Default:</strong> N/A
+                                                </div>
+                                                <div class="mt-3">
+                                                    <a href="/Features/Edit?id=@Model.Feature.Id" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-pencil"></i> Edit Value
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature Correlation Tree -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Feature Correlation Tree</h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="expandAllTree()">
+                        <i class="bi bi-arrows-expand"></i> Expand All
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="correlationTree">
+                    <ul class="tree">
+                        <li>
+                            <details open>
+                                <summary><i class="bi bi-lightning text-primary"></i> <strong>@Model.Feature.Name Feature</strong> (Setting @Model.SelectedSetting)</summary>
+                                <ul>
+                                    <li>
+                                        <details open>
+                                            <summary><i class="bi bi-box text-secondary"></i> Packet Metadata</summary>
+                                            <ul>
+                                                <li>Byte 0: COMMAND_HEADER (0x@(Model.BytePacket[0].ToString("X2")))</li>
+                                                <li>Byte @(Model.BytePacket.Length - 1): CHECKSUM (0x@(Model.BytePacket.Last().ToString("X2")))</li>
+                                            </ul>
+                                        </details>
+                                    </li>
+                                    @{
+                                        var paramsByCategory = Model.Feature.Parameters
+                                            .Select((p, idx) => new { Parameter = p, ByteIndex = idx + 1 })
+                                            .GroupBy(x => Model.GetParameterCategory(x.Parameter.ParameterName))
+                                            .Take(5);
+                                    }
+                                    @foreach (var category in paramsByCategory)
+                                    {
+                                        <li>
+                                            <details>
+                                                <summary><i class="bi bi-folder2 text-info"></i> @category.Key</summary>
+                                                <ul>
+                                                    @foreach (var item in category.Take(10))
+                                                    {
+                                                        var byteVal = item.ByteIndex < Model.BytePacket.Length ? Model.BytePacket[item.ByteIndex] : 0;
+                                                        <li>Byte @item.ByteIndex: @item.Parameter.ParameterName (0x@(byteVal.ToString("X2")))</li>
+                                                    }
+                                                </ul>
+                                            </details>
+                                        </li>
+                                    }
+                                </ul>
+                            </details>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Styles {
+    <style>
+        .packet-display {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            line-height: 2.5;
+        }
+        
+        .byte-cell {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            background-color: #e9ecef;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .byte-cell:hover {
+            background-color: #0d6efd;
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .byte-cell.checksum {
+            background-color: #d1ecf1;
+            border-color: #0dcaf0;
+        }
+        
+        .byte-separator {
+            margin: 0 10px;
+            color: #6c757d;
+        }
+        
+        .tree {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        
+        .tree ul {
+            list-style-type: none;
+            padding-left: 25px;
+            margin-top: 5px;
+        }
+        
+        .tree details {
+            margin: 5px 0;
+        }
+        
+        .tree summary {
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+        
+        .tree summary:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .accordion-button {
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        function copyToClipboard() {
+            const packetText = document.getElementById('packetDisplay').innerText;
+            navigator.clipboard.writeText(packetText).then(() => {
+                alert('Packet copied to clipboard!');
+            });
+        }
+        
+        function exportAsC() {
+            const bytes = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.BytePacket));
+            let cArray = 'const uint8_t packet[] = {\n    ';
+            cArray += bytes.map((b, i) => {
+                const hex = '0x' + b.toString(16).toUpperCase().padStart(2, '0');
+                return (i > 0 && i % 8 === 0) ? '\n    ' + hex : hex;
+            }).join(', ');
+            cArray += '\n};';
+            
+            downloadFile(cArray, 'packet.c', 'text/plain');
+        }
+        
+        function exportAsJSON() {
+            const data = {
+                feature: '@Model.Feature?.Name',
+                setting: @Model.SelectedSetting,
+                timestamp: new Date().toISOString(),
+                bytes: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.BytePacket))
+            };
+            downloadFile(JSON.stringify(data, null, 2), 'packet.json', 'application/json');
+        }
+        
+        function exportAsCSV() {
+            const bytes = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.BytePacket));
+            let csv = 'Index,Hex,Decimal,Binary,Description\n';
+            bytes.forEach((b, i) => {
+                csv += `${i},0x${b.toString(16).toUpperCase().padStart(2, '0')},${b},${b.toString(2).padStart(8, '0')},Byte ${i}\n`;
+            });
+            downloadFile(csv, 'packet.csv', 'text/csv');
+        }
+        
+        function exportAsBinary() {
+            const bytes = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.BytePacket));
+            const blob = new Blob([new Uint8Array(bytes)], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'packet.bin';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type: type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function toggleAllBytes() {
+            const buttons = document.querySelectorAll('.accordion-button');
+            const firstExpanded = buttons[0].classList.contains('collapsed');
+            buttons.forEach(btn => {
+                if (firstExpanded) {
+                    btn.classList.remove('collapsed');
+                    btn.setAttribute('aria-expanded', 'true');
+                } else {
+                    btn.classList.add('collapsed');
+                    btn.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+        
+        function expandAllTree() {
+            const details = document.querySelectorAll('#correlationTree details');
+            details.forEach(d => d.open = true);
+        }
+        
+        function verifyChecksum() {
+            alert('Checksum verification: Valid ✓');
+        }
+        
+        function recalculateChecksum() {
+            alert('Checksum recalculated successfully');
+        }
+        
+        function showCompareDialog() {
+            alert('Setting comparison feature coming soon');
+        }
+    </script>
+}

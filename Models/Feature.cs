@@ -5,8 +5,12 @@ public class Feature
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public bool IsComposite { get; set; } = false;
     public List<ParameterValue> Parameters { get; set; } = new();
     public List<PiccoloCommand> Commands { get; set; } = new();
+    public List<string> RequiredLpiParams { get; set; } = new();
+    public List<string> RequiredPiccoloCommands { get; set; } = new();
     public DateTime CreatedAt { get; set; }
     public DateTime ModifiedAt { get; set; }
     public string Owner { get; set; } = string.Empty;

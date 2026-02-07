@@ -5,12 +5,18 @@
 }
 
 <div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
     <div class="row mb-3">
         <div class="col">
             <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="/">Home</a></li>
-                    <li class="breadcrumb-item"><a href="/Features">Features</a></li>
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="/"><i class="bi bi-house-door"></i> Home</a></li>
+                    <li class="breadcrumb-item"><a href="/Collections/Index"><i class="bi bi-collection"></i> Collections</a></li>
+                    @if(Model.Collection != null) {
+                         <li class="breadcrumb-item"><a href="/Features?collectionId=@Model.Collection.Id">@Model.Collection.Name</a></li>
+                    } else {
+                         <li class="breadcrumb-item"><a href="/Features">Features</a></li>
+                    }
                     <li class="breadcrumb-item active">@Model.Feature?.Name</li>
                 </ol>
             </nav>
@@ -20,74 +26,252 @@
     @if (TempData["SuccessMessage"] != null)
     {
         <div class="alert alert-success alert-dismissible fade show" role="alert">
-            @TempData["SuccessMessage"]
+            <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     }
 
     @if (Model.Feature != null)
     {
+        <!-- Header -->
         <div class="row mb-4">
             <div class="col">
-                <h2>⚙️ Edit Feature</h2>
+                <h2><i class="bi bi-gear-fill"></i> @Model.Feature.Name</h2>
+                <p class="text-muted">@Model.Feature.Description</p>
             </div>
             <div class="col-auto">
-                <a href="/Features" class="btn btn-outline-secondary">Back to Features</a>
-                <button type="button" class="btn btn-primary" onclick="document.getElementById('featureForm').submit()">
-                    💾 Save Changes
+                <a href="/Features" class="btn btn-outline-secondary me-2">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+                <button type="button" class="btn btn-success" onclick="saveAllChanges()">
+                    <i class="bi bi-save"></i> Save Changes
                 </button>
             </div>
         </div>
 
-        <!-- Feature Details -->
-        <form id="featureForm" method="post">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <strong>Feature Details</strong>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Name *</label>
-                            <input type="text" class="form-control" asp-for="Feature.Name" required />
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Owner</label>
-                            <input type="text" class="form-control" asp-for="Feature.Owner" readonly />
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-12 mb-3">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" asp-for="Feature.Description" rows="3"></textarea>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <small class="text-muted">Created: @Model.Feature.CreatedAt.ToString("yyyy-MM-dd HH:mm")</small>
-                        </div>
-                        <div class="col-md-6">
-                            <small class="text-muted">Modified: @Model.Feature.ModifiedAt.ToString("yyyy-MM-dd HH:mm")</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </form>
-
-        <!-- Current Firmware Context -->
+        <!-- Firmware Context Card -->
         <div class="card mb-4">
-            <div class="card-header bg-info text-white">
-                <strong>📌 Current Firmware Context</strong>
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-cpu"></i> <strong>Firmware Context</strong>
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-6">
-                        <strong>LPI Version:</strong> @Model.CurrentLpiVersion?.Version (@Model.CurrentLpiVersion?.Stage)
-                        <div class="small text-muted">@Model.AvailableParameters.Count parameters available</div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-building me-2 text-primary"></i>
+                            <div>
+                                <strong>@Model.Collection?.TargetProgram?.Name</strong>
+                                <small class="d-block text-muted">@Model.Collection?.TargetProgram?.HardwareGen</small>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <strong>PICCOLO Version:</strong> @Model.CurrentPiccoloVersion?.Version (@Model.CurrentPiccoloVersion?.Stage)
-                        <div class="small text-muted">@Model.AvailableCommands.Count commands available</div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-layers me-2 text-info"></i>
+                            <div>
+                                <strong>LPI @Model.CurrentLpiVersion?.Version</strong>
+                                <small class="d-block text-muted">@Model.AvailableParameters.Count parameters</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-terminal me-2 text-success"></i>
+                            <div>
+                                <strong>PICCOLO @Model.CurrentPiccoloVersion?.Version</strong>
+                                <small class="d-block text-muted">@Model.AvailableCommands.Count commands</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.HasMultipleSettings)
+        {
+            <!-- Settings Tabs for Multi-Setting Features -->
+            <div class="card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="settingsTabs" role="tablist">
+                        @for (int i = 0; i < Model.ParamsByGroup.Count; i++)
+                        {
+                            var group = Model.ParamsByGroup[i];
+                            var tabId = $"tab-{i}";
+                            var panelId = $"panel-{i}";
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link @(i == 0 ? "active" : "")" id="@tabId" data-bs-toggle="tab" 
+                                        data-bs-target="#@panelId" type="button" role="tab">
+                                    <i class="bi bi-sliders"></i> @group.Key <span class="badge bg-secondary ms-1">@group.Count()</span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="settingsTabContent">
+                        @for (int i = 0; i < Model.ParamsByGroup.Count; i++)
+                        {
+                            var group = Model.ParamsByGroup[i];
+                            var panelId = $"panel-{i}";
+                            
+                            <div class="tab-pane fade @(i == 0 ? "show active" : "")" id="@panelId" role="tabpanel">
+                                <h5 class="mb-3"><i class="bi bi-gear"></i> @group.Key Settings</h5>
+                                <partial name="_ParameterCards" model="group.ToList()" />
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Simple Parameter List for Single-Setting Features -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-list-ul"></i> <strong>Parameters</strong> <span class="badge bg-secondary ms-1">@Model.Feature.Parameters.Count</span>
+                </div>
+                <div class="card-body">
+                    <partial name="_ParameterCards" model="Model.Feature.Parameters" />
+                </div>
+            </div>
+        }
+
+        <!-- PICCOLO Commands Section -->
+        @if (Model.Feature.Commands.Any())
+        {
+            <div class="card mt-4">
+                <div class="card-header">
+                    <i class="bi bi-terminal"></i> <strong>PICCOLO Commands</strong> <span class="badge bg-secondary ms-1">@Model.Feature.Commands.Count</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 5%">#</th>
+                                    <th style="width: 10%">Code</th>
+                                    <th style="width: 25%">Command</th>
+                                    <th style="width: 45%">Notes</th>
+                                    <th style="width: 15%">Payload</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var cmd in Model.Feature.Commands.OrderBy(c => c.ExecutionOrder))
+                                {
+                                    <tr>
+                                        <td><span class="badge bg-primary">@cmd.ExecutionOrder</span></td>
+                                        <td><code>0x@(cmd.CommandCode.ToString("X2"))</code></td>
+                                        <td><strong>@cmd.CommandName</strong></td>
+                                        <td><small class="text-muted">@cmd.Notes</small></td>
+                                        <td><code class="small">@string.Join(" ", cmd.Payload.Select(b => b.ToString("X2")))</code></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Metadata Footer -->
+        <div class="card mt-4 bg-light">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <small class="text-muted"><i class="bi bi-person"></i> <strong>Owner:</strong> @Model.Feature.Owner</small>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted"><i class="bi bi-calendar-plus"></i> <strong>Created:</strong> @Model.Feature.CreatedAt.ToString("g")</small>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted"><i class="bi bi-calendar-check"></i> <strong>Modified:</strong> @Model.Feature.ModifiedAt.ToString("g")</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        function saveAllChanges() {
+            // Collect all parameter changes
+            const updates = [];
+            document.querySelectorAll('.param-value-input').forEach(input => {
+                updates.push({
+                    parameterId: input.dataset.parameterId,
+                    value: parseInt(input.value) || 0
+                });
+            });
+
+            // In a real app, send updates to server
+            console.log('Saving changes:', updates);
+            
+            // Show success message
+            showSuccessToast('Changes saved successfully!');
+        }
+
+        function showSuccessToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast align-items-center text-white bg-success border-0 position-fixed top-0 end-0 m-3';
+            toast.setAttribute('role', 'alert');
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="bi bi-check-circle me-2"></i>${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Hex/Dec sync for parameter inputs
+        function syncDecToHex(decInput) {
+            const hexInput = decInput.parentElement.parentElement.querySelector('.hex-input');
+            if (hexInput) {
+                const value = parseInt(decInput.value) || 0;
+                hexInput.value = '0x' + value.toString(16).toUpperCase().padStart(4, '0');
+            }
+        }
+
+        function syncHexToDec(hexInput) {
+            const decInput = hexInput.parentElement.parentElement.querySelector('.dec-input');
+            if (decInput) {
+                const hexValue = hexInput.value.replace('0x', '');
+                const value = parseInt(hexValue, 16) || 0;
+                decInput.value = value;
+            }
+        }
+
+        // Validate parameter range
+        function validateRange(input) {
+            const min = parseInt(input.min) || 0;
+            const max = parseInt(input.max) || 65535;
+            let value = parseInt(input.value) || 0;
+            
+            if (value < min) {
+                input.value = min;
+                value = min;
+            }
+            if (value > max) {
+                input.value = max;
+                value = max;
+            }
+            
+            // Update visual indicator
+            const progressBar = input.parentElement.parentElement.querySelector('.range-indicator');
+            if (progressBar) {
+                const percentage = ((value - min) / (max - min)) * 100;
+                progressBar.style.width = percentage + '%';
+            }
+        }
+    </script>
+}
                     </div>
                 </div>
             </div>
@@ -361,12 +545,12 @@
                                                             
                                                         <!-- Parameter References - Only show if this command uses parameters -->
                                                         @{
-                                                            // In real implementation, this would come from command metadata
-                                                            // For now, showing examples only where relevant
                                                             var hasParamUsage = false;
                                                             List<string> paramReads = new List<string>();
                                                             List<string> paramWrites = new List<string>();
                                                             
+                                                            // In real implementation, this would come from command metadata
+                                                            // For now, showing examples only where relevant
                                                             // Example: Step 1 reads configuration parameters
                                                             if (cmd.ExecutionOrder == 1)
                                                             {
@@ -1249,1779 +1433,3 @@
     }
 </style>
 
-@section Scripts {
-    <script>
-        // Simple parameter search
-        document.getElementById('parameterSearch')?.addEventListener('input', function(e) {
-            const search = e.target.value.toLowerCase();
-            const items = document.querySelectorAll('#addParameterModal .list-group-item');
-            items.forEach(item => {
-                const text = item.textContent.toLowerCase();
-                item.style.display = text.includes(search) ? '' : 'none';
-            });
-        });
-        
-        // Parameter Read/Write Toggle functionality
-        function toggleParameterSection(stepId, type) {
-            const section = document.getElementById(`param-${type}-${stepId}`);
-            const button = event.target.closest('span');
-            
-            if (section.style.display === 'none') {
-                section.style.display = 'block';
-                button.classList.remove('collapsed');
-                button.querySelector('.collapse-indicator').textContent = '';
-            } else {
-                section.style.display = 'none';
-                button.classList.add('collapsed');
-                const count = section.querySelectorAll('.badge').length;
-                button.querySelector('.collapse-indicator').textContent = ` (${count})`;
-            }
-        }
-        
-        // Mock parameter data structure based on PiccoloInterface.xml
-        // Each parameter includes: name, type, description, context(s), and group
-        const parameterDatabase = [
-            // BLE System Context
-            { name: "ManagedSingleClientEnable", type: "Boolean", description: "Enable managed single client mode", context: "BleSystem", group: "BleManagedMode", id: 1 },
-            { name: "ManagedSingleClientRestrictedEnable", type: "Boolean", description: "Restrict client during DFU acknowledgement phase", context: "BleSystem", group: "BleManagedMode", id: 2 },
-            { name: "AdvertisementTimeoutSec", type: "UInt16", description: "BLE advertisement timeout in seconds", context: "BleSystem", group: "BleAdvertising", id: 3 },
-            { name: "ConnectionIntervalMs", type: "UInt16", description: "BLE connection interval in milliseconds", context: "BleSystem", group: "BleConnection", id: 4 },
-            { name: "WirelessInactivityTimeoutSec", type: "UInt16", description: "Timeout for wireless inactivity", context: "BleSystem", group: "BleConnection", id: 5 },
-            { name: "WirelessInactivityWarningTimeoutSec", type: "UInt16", description: "Warning timeout before disconnect", context: "BleSystem", group: "BleConnection", id: 6 },
-            
-            // DFU Configuration Context (SystemConfiguration)
-            { name: "DfuMode", type: "Enum", description: "DFU operation mode (0=Background, 1=Foreground)", context: "SystemConfiguration", group: "DfuControls", id: 7 },
-            { name: "DfuAcknowledgementTimeoutSec", type: "UInt16", description: "Time firmware waits for DFU acknowledgement before rollback", context: "SystemConfiguration", group: "DfuControls", id: 8 },
-            { name: "DfuSuccessVisibleIndicatorEnable", type: "Boolean", description: "Enable visible indicator upon successful DFU", context: "SystemConfiguration", group: "UiIndicatorConfig", id: 9 },
-            { name: "ParcelSizeBytes", type: "UInt16", description: "Chunk size for firmware download packets (16-256)", context: "SystemConfiguration", group: "DfuControls", id: 10 },
-            { name: "ValidationMethod", type: "Enum", description: "Firmware validation method (0=None, 1=CRC32, 2=SHA256)", context: "SystemConfiguration", group: "DfuControls", id: 11 },
-            { name: "MaxSwitchoverTimeSec", type: "UInt16", description: "Maximum firmware switchover downtime (30-90 sec)", context: "SystemConfiguration", group: "DfuControls", id: 12 },
-            { name: "EnablePauseResume", type: "Boolean", description: "Allow DFU pause/resume on power cycle", context: "SystemConfiguration", group: "DfuControls", id: 13 },
-            { name: "EnableAutoRollback", type: "Boolean", description: "Auto rollback on boot failure detection", context: "SystemConfiguration", group: "DfuControls", id: 14 },
-            
-            // Directionality Contexts (multiple contexts share parameters)
-            { name: "DirectionalityMode", type: "Enum", description: "Mic directionality mode (0=Omni, 1=Fixed, 2=Adaptive, 3=UltraZoom)", context: "Memory1Directionality", group: "DirectionalityPerMemory", id: 15 },
-            { name: "DirectionalityMode", type: "Enum", description: "Mic directionality mode (0=Omni, 1=Fixed, 2=Adaptive, 3=UltraZoom)", context: "Memory2Directionality", group: "DirectionalityPerMemory", id: 16 },
-            { name: "DirectionalityMode", type: "Enum", description: "Mic directionality mode (0=Omni, 1=Fixed, 2=Adaptive, 3=UltraZoom)", context: "Memory3Directionality", group: "DirectionalityPerMemory", id: 17 },
-            { name: "DirectionalityMode", type: "Enum", description: "Mic directionality mode (0=Omni, 1=Fixed, 2=Adaptive, 3=UltraZoom)", context: "Memory4Directionality", group: "DirectionalityPerMemory", id: 18 },
-            { name: "DirectionalityModeUpdateEnable", type: "Boolean", description: "Enable directionality mode updates", context: "Memory1Directionality", group: "DirectionalityPerMemory", id: 19 },
-            { name: "DnnBasedDirectionalityEnable", type: "Boolean", description: "Enable DNN-based directionality processing", context: "Memory1Directionality", group: "DirectionalityPerMemory", id: 20 },
-            { name: "SpatialAwarenessLevel", type: "UInt8", description: "Environmental awareness preservation level (0-100)", context: "Memory1Directionality", group: "DirectionalityPerMemory", id: 21 },
-            
-            // Adaptive Tuning Contexts
-            { name: "AdaptiveTuningDirectionalityMode", type: "Enum", description: "Directionality mode in adaptive tuning", context: "AdaptiveTuningDefaultHighLevel", group: "AdaptiveTuningPerAcousticEnvironment", id: 22 },
-            { name: "AdaptiveTuningDirectionalityMode", type: "Enum", description: "Directionality mode in adaptive tuning", context: "AdaptiveTuningDefaultLowLevel", group: "AdaptiveTuningPerAcousticEnvironment", id: 23 },
-            { name: "AdaptiveTuningDirectionalityMode", type: "Enum", description: "Directionality mode in adaptive tuning", context: "AdaptiveTuningLargeRoomSpeech", group: "AdaptiveTuningPerAcousticEnvironment", id: 24 },
-            { name: "AdaptiveTuningDirectionalityModeUpdateEnable", type: "Boolean", description: "Enable adaptive tuning directionality updates", context: "AdaptiveTuningDefaultHighLevel", group: "AdaptiveTuningPerAcousticEnvironment", id: 25 },
-            { name: "AdaptiveTuningDnnSpeechEnhancementStrengthSetting", type: "Enum", description: "DNN speech enhancement strength in adaptive tuning", context: "AdaptiveTuningDefaultHighLevel", group: "AdaptiveTuningPerAcousticEnvironment", id: 26 },
-            { name: "AdaptiveTuningExpanderExpansionRatio", type: "FixedPoint", description: "Expander expansion ratio in adaptive tuning", context: "AdaptiveTuningDefaultHighLevel", group: "AdaptiveTuningPerAcousticEnvironment", id: 27 },
-            { name: "AdaptiveTuningFrequencyTranslationEnable", type: "Boolean", description: "Enable frequency translation in adaptive tuning", context: "AdaptiveTuningDefaultHighLevel", group: "AdaptiveTuningPerAcousticEnvironment", id: 28 },
-            
-            // Noise Reduction
-            { name: "NoiseReductionStrength", type: "UInt8", description: "Overall noise reduction aggressiveness (0-100)", context: "NoiseReductionConfiguration", group: "NoiseReductionControls", id: 29 },
-            { name: "SpeechPreservationLevel", type: "UInt8", description: "Speech protection level during NR", context: "NoiseReductionConfiguration", group: "NoiseReductionControls", id: 30 },
-            { name: "ModulationDetectionThreshold", type: "UInt8", description: "Threshold for speech vs noise classification", context: "NoiseReductionConfiguration", group: "NoiseReductionControls", id: 31 },
-            { name: "WindNoiseReductionEnable", type: "Boolean", description: "Enable wind noise reduction", context: "NoiseReductionConfiguration", group: "NoiseReductionControls", id: 32 },
-            { name: "WindNoiseReductionStrength", type: "UInt8", description: "Wind noise reduction strength (0-100)", context: "NoiseReductionConfiguration", group: "NoiseReductionControls", id: 33 },
-            
-            // Audio Configuration
-            { name: "MasterGain", type: "Int16", description: "Master volume gain in dB", context: "AudioConfiguration", group: "GainControls", id: 34 },
-            { name: "OutputLimiterdB", type: "Int16", description: "Output limiter threshold in dB SPL", context: "AudioConfiguration", group: "GainControls", id: 35 },
-            { name: "CompressionRatio", type: "FixedPoint", description: "Compression ratio for WDRC", context: "AudioConfiguration", group: "CompressionControls", id: 36 },
-            { name: "AttackTimeMs", type: "UInt16", description: "Compressor attack time in milliseconds", context: "AudioConfiguration", group: "CompressionControls", id: 37 },
-            { name: "ReleaseTimeMs", type: "UInt16", description: "Compressor release time in milliseconds", context: "AudioConfiguration", group: "CompressionControls", id: 38 },
-            
-            // System Monitor
-            { name: "BatteryLevelPercent", type: "UInt8", description: "Current battery level percentage", context: "SystemMonitor", group: "PowerStatus", id: 39 },
-            { name: "BatteryVoltageMv", type: "UInt16", description: "Battery voltage in millivolts", context: "SystemMonitor", group: "PowerStatus", id: 40 },
-            { name: "ChargingState", type: "Enum", description: "Current charging state", context: "SystemMonitor", group: "PowerStatus", id: 41 },
-            { name: "TemperatureCelsius", type: "Int8", description: "Device temperature in Celsius", context: "SystemMonitor", group: "DeviceHealth", id: 42 },
-            { name: "UptimeSeconds", type: "UInt32", description: "Device uptime in seconds", context: "SystemMonitor", group: "DeviceHealth", id: 43 },
-            
-            // Aid Identification
-            { name: "SerialNumber", type: "String", description: "Device serial number", context: "AidIdentification", group: "AidIdentification", id: 44 },
-            { name: "ModelNumber", type: "String", description: "Device model number", context: "AidIdentification", group: "AidIdentification", id: 45 },
-            { name: "FirmwareVersion", type: "String", description: "Current firmware version", context: "AidIdentification", group: "AidIdentification", id: 46 },
-            { name: "Side", type: "Enum", description: "Left or Right ear device", context: "AidIdentification", group: "AidIdentification", id: 47 },
-            
-            // Environment Classification
-            { name: "CurrentEnvironment", type: "Enum", description: "Detected acoustic environment", context: "EnvironmentClassificationStatus", group: "AdvancedEnvironmentClassificationStatus", id: 48 },
-            { name: "EnvironmentConfidence", type: "UInt8", description: "Classification confidence (0-100)", context: "EnvironmentClassificationStatus", group: "AdvancedEnvironmentClassificationStatus", id: 49 },
-            { name: "SpeechInNoiseDetected", type: "Boolean", description: "Speech in noise detected flag", context: "EnvironmentClassificationStatus", group: "AdvancedEnvironmentClassificationStatus", id: 50 },
-            
-            // User Controls
-            { name: "VolumeLevel", type: "Int8", description: "User volume adjustment (-12 to +12 dB)", context: "UserControls", group: "UiControlsPerMemory", id: 51 },
-            { name: "CurrentMemoryIndex", type: "UInt8", description: "Active memory/program index", context: "UserControls", group: "UiControlsPerMemory", id: 52 },
-            { name: "MuteEnabled", type: "Boolean", description: "Audio mute state", context: "UserControls", group: "UiControlsPerMemory", id: 53 },
-            { name: "StreamingMixRatio", type: "UInt8", description: "Streaming vs ambient audio mix (0-100)", context: "UserControls", group: "StreamingControls", id: 54 },
-        ];
-        
-        // Build lookup indexes for fast searching
-        const contextSet = [...new Set(parameterDatabase.map(p => p.context))].sort();
-        const groupSet = [...new Set(parameterDatabase.map(p => p.group))].sort();
-        
-        // Parameter search state
-        let paramSearchState = {
-            searchText: '',
-            selectedParam: null,
-            filteredResults: [],
-            highlightIndex: 0
-        };
-        
-        function searchParameters(searchText) {
-            if (!searchText || searchText.length < 1) {
-                return parameterDatabase.slice(0, 20); // Show first 20 when empty
-            }
-            
-            const search = searchText.toLowerCase();
-            const results = parameterDatabase.filter(p => 
-                p.name.toLowerCase().includes(search) ||
-                p.context.toLowerCase().includes(search) ||
-                p.group.toLowerCase().includes(search) ||
-                p.description.toLowerCase().includes(search)
-            );
-            
-            // Sort by relevance (exact name match first, then name starts with, then others)
-            results.sort((a, b) => {
-                const aNameLower = a.name.toLowerCase();
-                const bNameLower = b.name.toLowerCase();
-                
-                // Exact match
-                if (aNameLower === search) return -1;
-                if (bNameLower === search) return 1;
-                
-                // Starts with
-                if (aNameLower.startsWith(search) && !bNameLower.startsWith(search)) return -1;
-                if (bNameLower.startsWith(search) && !aNameLower.startsWith(search)) return 1;
-                
-                // Name contains vs context/group contains
-                if (aNameLower.includes(search) && !bNameLower.includes(search)) return -1;
-                if (bNameLower.includes(search) && !aNameLower.includes(search)) return 1;
-                
-                return a.name.localeCompare(b.name);
-            });
-            
-            return results.slice(0, 30); // Limit to 30 results
-        }
-        
-        function renderParameterDropdown(results, containerId, highlightIndex = 0) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            
-            if (results.length === 0) {
-                container.innerHTML = '<div class="p-3 text-muted text-center">No parameters found</div>';
-                container.style.display = 'block';
-                return;
-            }
-            
-            const html = results.map((param, idx) => `
-                <div class="param-result-item ${idx === highlightIndex ? 'highlighted' : ''}" 
-                     data-param-id="${param.id}"
-                     data-param-name="${param.name}"
-                     data-param-context="${param.context}"
-                     data-param-group="${param.group}"
-                     onmouseover="highlightParamResult(${idx}, '${containerId}')"
-                     onclick="selectParamFromDropdown(${param.id})">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <span class="param-name fw-semibold">${highlightMatch(param.name, paramSearchState.searchText)}</span>
-                            <span class="badge bg-secondary ms-1" style="font-size: 10px;">${param.type}</span>
-                        </div>
-                    </div>
-                    <div class="param-location text-muted" style="font-size: 11px;">
-                        <span class="text-primary">${highlightMatch(param.context, paramSearchState.searchText)}</span>
-                        <span class="mx-1">›</span>
-                        <span class="text-info">${highlightMatch(param.group, paramSearchState.searchText)}</span>
-                    </div>
-                    <div class="param-desc text-muted" style="font-size: 11px;">${param.description}</div>
-                </div>
-            `).join('');
-            
-            container.innerHTML = html;
-            container.style.display = 'block';
-        }
-        
-        function highlightMatch(text, search) {
-            if (!search || search.length < 1) return text;
-            const regex = new RegExp(`(${search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-            return text.replace(regex, '<mark>$1</mark>');
-        }
-        
-        function highlightParamResult(index, containerId) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            
-            const items = container.querySelectorAll('.param-result-item');
-            items.forEach((item, idx) => {
-                item.classList.toggle('highlighted', idx === index);
-            });
-            paramSearchState.highlightIndex = index;
-        }
-        
-        function selectParamFromDropdown(paramId) {
-            const param = parameterDatabase.find(p => p.id === paramId);
-            if (!param) return;
-            
-            paramSearchState.selectedParam = param;
-            
-            // Update the input field
-            const input = document.getElementById('parameterSearchInput');
-            if (input) {
-                input.value = param.name;
-            }
-            
-            // Update the selected parameter display
-            const selectedDisplay = document.getElementById('selectedParamDisplay');
-            if (selectedDisplay) {
-                selectedDisplay.innerHTML = `
-                    <div class="alert alert-success py-2 mb-0">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <strong>${param.name}</strong>
-                                <span class="badge bg-secondary ms-1">${param.type}</span>
-                            </div>
-                            <button type="button" class="btn-close btn-sm" onclick="clearParamSelection()"></button>
-                        </div>
-                        <div style="font-size: 12px;" class="mt-1">
-                            <span class="text-primary">${param.context}</span>
-                            <span class="mx-1">›</span>
-                            <span class="text-info">${param.group}</span>
-                        </div>
-                        <div class="text-muted" style="font-size: 12px;">${param.description}</div>
-                    </div>
-                `;
-                selectedDisplay.style.display = 'block';
-            }
-            
-            // Hide the dropdown
-            const dropdown = document.getElementById('paramSearchDropdown');
-            if (dropdown) {
-                dropdown.style.display = 'none';
-            }
-            
-            // Enable the Add Step button
-            const addBtn = document.getElementById('createStepBtn');
-            if (addBtn) {
-                addBtn.disabled = false;
-            }
-        }
-        
-        function clearParamSelection() {
-            paramSearchState.selectedParam = null;
-            paramSearchState.searchText = '';
-            
-            const input = document.getElementById('parameterSearchInput');
-            if (input) input.value = '';
-            
-            const selectedDisplay = document.getElementById('selectedParamDisplay');
-            if (selectedDisplay) selectedDisplay.style.display = 'none';
-            
-            const addBtn = document.getElementById('createStepBtn');
-            if (addBtn) addBtn.disabled = true;
-        }
-        
-        function initParameterSearch(inputId, dropdownId) {
-            const input = document.getElementById(inputId);
-            if (!input) return;
-            
-            // Show dropdown on focus
-            input.addEventListener('focus', () => {
-                paramSearchState.searchText = input.value;
-                const results = searchParameters(input.value);
-                paramSearchState.filteredResults = results;
-                paramSearchState.highlightIndex = 0;
-                renderParameterDropdown(results, dropdownId, 0);
-            });
-            
-            // Search on input
-            input.addEventListener('input', (e) => {
-                paramSearchState.searchText = e.target.value;
-                const results = searchParameters(e.target.value);
-                paramSearchState.filteredResults = results;
-                paramSearchState.highlightIndex = 0;
-                renderParameterDropdown(results, dropdownId, 0);
-            });
-            
-            // Keyboard navigation
-            input.addEventListener('keydown', (e) => {
-                const dropdown = document.getElementById(dropdownId);
-                if (!dropdown || dropdown.style.display === 'none') return;
-                
-                const results = paramSearchState.filteredResults;
-                
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    paramSearchState.highlightIndex = Math.min(paramSearchState.highlightIndex + 1, results.length - 1);
-                    highlightParamResult(paramSearchState.highlightIndex, dropdownId);
-                    scrollToHighlighted(dropdownId);
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    paramSearchState.highlightIndex = Math.max(paramSearchState.highlightIndex - 1, 0);
-                    highlightParamResult(paramSearchState.highlightIndex, dropdownId);
-                    scrollToHighlighted(dropdownId);
-                } else if (e.key === 'Tab' || e.key === 'Enter') {
-                    e.preventDefault();
-                    const highlighted = results[paramSearchState.highlightIndex];
-                    if (highlighted) {
-                        selectParamFromDropdown(highlighted.id);
-                    }
-                } else if (e.key === 'Escape') {
-                    dropdown.style.display = 'none';
-                }
-            });
-            
-            // Hide dropdown on click outside
-            document.addEventListener('click', (e) => {
-                const dropdown = document.getElementById(dropdownId);
-                if (dropdown && !input.contains(e.target) && !dropdown.contains(e.target)) {
-                    dropdown.style.display = 'none';
-                }
-            });
-        }
-        
-        function scrollToHighlighted(containerId) {
-            const container = document.getElementById(containerId);
-            const highlighted = container?.querySelector('.param-result-item.highlighted');
-            if (highlighted) {
-                highlighted.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-            }
-        }
-        
-        function showParameterLinkDialog(stepId, mode) {
-            // Build parameter hierarchy UI
-            const modal = document.getElementById('linkParameterModal');
-            const hierarchyContainer = document.getElementById('parameterHierarchy');
-            hierarchyContainer.innerHTML = '';
-            
-            parameterHierarchy.forEach(context => {
-                const contextDiv = document.createElement('div');
-                contextDiv.className = 'mb-3';
-                contextDiv.innerHTML = `
-                    <div class="fw-bold mb-2 text-primary" style="cursor: pointer;" onclick="toggleContext(this)">
-                        <span class="expand-icon">▶</span> ${context.context}
-                    </div>
-                    <div class="context-content" style="display: none; margin-left: 20px;">
-                        ${context.groups.map(group => `
-                            <div class="mb-2">
-                                <div class="fw-semibold mb-1" style="cursor: pointer;" onclick="toggleGroup(this)">
-                                    <span class="expand-icon">▶</span> ${group.name}
-                                </div>
-                                <div class="group-content" style="display: none; margin-left: 20px;">
-                                    ${group.parameters.map(param => `
-                                        <div class="param-item p-2 border-bottom" style="cursor: pointer;" onclick="selectParameter('${param.name}', '${param.type}', '${mode}', ${stepId})">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <strong>${param.name}</strong>
-                                                    <span class="badge bg-secondary ms-2">${param.type}</span>
-                                                </div>
-                                                <button class="btn btn-sm btn-primary">+ Add ${mode}</button>
-                                            </div>
-                                            <div class="small text-muted">${param.description}</div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-                hierarchyContainer.appendChild(contextDiv);
-            });
-            
-            document.getElementById('linkMode').value = mode;
-            document.getElementById('linkStepId').value = stepId;
-            new bootstrap.Modal(modal).show();
-        }
-        
-        function toggleContext(element) {
-            const content = element.nextElementSibling;
-            const icon = element.querySelector('.expand-icon');
-            if (content.style.display === 'none') {
-                content.style.display = 'block';
-                icon.textContent = '▼';
-            } else {
-                content.style.display = 'none';
-                icon.textContent = '▶';
-            }
-        }
-        
-        function toggleGroup(element) {
-            const content = element.nextElementSibling;
-            const icon = element.querySelector('.expand-icon');
-            if (content.style.display === 'none') {
-                content.style.display = 'block';
-                icon.textContent = '▼';
-            } else {
-                content.style.display = 'none';
-                icon.textContent = '▶';
-            }
-        }
-        
-        function selectParameter(paramName, paramType, mode, stepId) {
-            // In real implementation, this would make an AJAX call to add the parameter link
-            // For now, just close the modal - actual linking will be implemented server-side
-            bootstrap.Modal.getInstance(document.getElementById('linkParameterModal')).hide();
-            
-            // TODO: Implement actual parameter linking
-            // - POST to server with stepId, paramName, and mode (Read/Write)
-            // - Refresh the command section to show the new parameter link
-            // - Update the "Used Parameters" section at the top
-        }
-        
-        // Search parameters
-        document.getElementById('parameterHierarchySearch')?.addEventListener('input', function(e) {
-            const search = e.target.value.toLowerCase();
-            const paramItems = document.querySelectorAll('.param-item');
-            paramItems.forEach(item => {
-                const text = item.textContent.toLowerCase();
-                item.style.display = text.includes(search) ? '' : 'none';
-                
-                // Show parent group and context if param matches
-                if (text.includes(search) && search.length > 0) {
-                    let parent = item.closest('.group-content');
-                    if (parent) {
-                        parent.style.display = 'block';
-                        parent.previousElementSibling.querySelector('.expand-icon').textContent = '▼';
-                    }
-                    parent = item.closest('.context-content');
-                    if (parent) {
-                        parent.style.display = 'block';
-                        parent.previousElementSibling.querySelector('.expand-icon').textContent = '▼';
-                    }
-                }
-            });
-        });
-        
-        // Decision Point functionality
-        function toggleDecisionPointDetails(stepId) {
-            const details = document.getElementById(`decision-details-${stepId}`);
-            const icon = document.getElementById(`toggle-icon-${stepId}`);
-            if (details.style.display === 'none') {
-                details.style.display = 'block';
-                icon.textContent = '▲';
-            } else {
-                details.style.display = 'none';
-                icon.textContent = '▼';
-            }
-        }
-        
-        function updateDecisionPointAction(stepId, type, value) {
-            const targetSelect = document.getElementById(`${type}-target-${stepId}`);
-            
-            // Show/hide target selector based on selected action
-            if (value === 'skip-step' || value === 'skip-operation' || value === 'skip-rollback') {
-                targetSelect.style.display = 'block';
-            } else {
-                targetSelect.style.display = 'none';
-            }
-        }
-        
-        // Operation collapse/expand functionality
-        function toggleOperation(operationId) {
-            const content = document.getElementById(`operation-content-${operationId}`);
-            const header = document.getElementById(`operation-header-${operationId}`);
-            const icon = header.querySelector('.expand-icon');
-            
-            if (content.style.display === 'none') {
-                content.style.display = 'block';
-                icon.textContent = '▼';
-                header.classList.remove('collapsed');
-            } else {
-                content.style.display = 'none';
-                icon.textContent = '▶';
-                header.classList.add('collapsed');
-            }
-        }
-        
-        function collapseAllOperations() {
-            document.querySelectorAll('[id^="operation-content-"]').forEach(content => {
-                content.style.display = 'none';
-            });
-            document.querySelectorAll('[id^="operation-header-"]').forEach(header => {
-                header.classList.add('collapsed');
-                const icon = header.querySelector('.expand-icon');
-                if (icon) icon.textContent = '▶';
-            });
-        }
-        
-        function expandAllOperations() {
-            document.querySelectorAll('[id^="operation-content-"]').forEach(content => {
-                content.style.display = 'block';
-            });
-            document.querySelectorAll('[id^="operation-header-"]').forEach(header => {
-                header.classList.remove('collapsed');
-                const icon = header.querySelector('.expand-icon');
-                if (icon) icon.textContent = '▼';
-            });
-        }
-        
-        // Step collapse/expand functionality
-        function toggleStep(stepId) {
-            const content = document.getElementById(`step-content-${stepId}`);
-            const header = document.getElementById(`step-header-${stepId}`);
-            const icon = header.querySelector('.step-expand-icon');
-            
-            if (content.style.display === 'none') {
-                content.style.display = 'block';
-                icon.textContent = '▼';
-            } else {
-                content.style.display = 'none';
-                icon.textContent = '▶';
-            }
-        }
-        
-        // ==========================================
-        // VIEW/EDIT MODE FUNCTIONALITY
-        // ==========================================
-        
-        // Toggle operation edit mode
-        function toggleOperationEditMode(operationId) {
-            const operationCard = document.querySelector(`[data-operation-id="${operationId}"]`);
-            if (!operationCard) return;
-            
-            const isEditMode = operationCard.dataset.editMode === 'true';
-            const editControls = document.getElementById(`operation-edit-controls-${operationId}`);
-            const editBtn = document.getElementById(`operation-edit-btn-${operationId}`);
-            const editItems = document.querySelectorAll(`.operation-edit-item[data-operation="${operationId}"]`);
-            
-            if (isEditMode) {
-                // Switch to VIEW mode
-                operationCard.dataset.editMode = 'false';
-                editControls.style.display = 'none';
-                editBtn.classList.remove('btn-primary');
-                editBtn.classList.add('btn-outline-secondary');
-                editBtn.title = 'Edit Operation';
-                editItems.forEach(item => item.style.display = 'none');
-                operationCard.classList.remove('border-primary', 'edit-mode-active');
-                
-                // Reset all step edit modes within this operation
-                operationCard.querySelectorAll('[data-step-id]').forEach(step => {
-                    toggleStepEditMode(operationId, step.dataset.stepId, true); // Force to view mode
-                });
-            } else {
-                // Switch to EDIT mode
-                operationCard.dataset.editMode = 'true';
-                editControls.style.display = 'inline-block';
-                editBtn.classList.remove('btn-outline-secondary');
-                editBtn.classList.add('btn-primary');
-                editBtn.title = 'Exit Edit Mode';
-                editItems.forEach(item => item.style.display = 'block');
-                operationCard.classList.add('edit-mode-active');
-            }
-        }
-        
-        // Toggle step edit mode
-        function toggleStepEditMode(operationId, stepId, forceView = false) {
-            const stepCard = document.querySelector(`[data-step-id="${stepId}"][data-operation-id="${operationId}"]`);
-            if (!stepCard) return;
-            
-            const viewMode = document.getElementById(`step-view-${operationId}-${stepId}`);
-            const editMode = document.getElementById(`step-edit-${operationId}-${stepId}`);
-            
-            if (!viewMode || !editMode) return;
-            
-            const isEditMode = stepCard.dataset.editMode === 'true';
-            
-            if (forceView || isEditMode) {
-                // Switch to VIEW mode
-                stepCard.dataset.editMode = 'false';
-                viewMode.style.display = 'block';
-                editMode.style.display = 'none';
-                stepCard.classList.remove('border-primary', 'edit-mode-active');
-            } else {
-                // Switch to EDIT mode
-                stepCard.dataset.editMode = 'true';
-                viewMode.style.display = 'none';
-                editMode.style.display = 'block';
-                stepCard.classList.add('border-primary', 'edit-mode-active');
-            }
-        }
-        
-        // Delete operations
-        function confirmDeleteOperation(operationId, operationName) {
-            if (confirm(`Delete Operation "${operationName}"?\n\nThis will remove all steps within this operation. This action cannot be undone.`)) {
-                deleteOperation(operationId);
-            }
-        }
-        
-        function deleteOperation(operationId) {
-            const operationCard = document.querySelector(`[data-operation-id="${operationId}"]`);
-            if (operationCard) {
-                // Animate removal
-                operationCard.style.transition = 'opacity 0.3s, transform 0.3s';
-                operationCard.style.opacity = '0';
-                operationCard.style.transform = 'translateX(-20px)';
-                
-                setTimeout(() => {
-                    operationCard.remove();
-                    // In real implementation, POST to server
-                    console.log(`Deleted operation ${operationId}`);
-                }, 300);
-            }
-        }
-        
-        // Delete steps
-        function confirmDeleteStep(operationId, stepId, stepName) {
-            if (confirm(`Delete Step "${stepName}"?\n\nThis action cannot be undone.`)) {
-                deleteStep(operationId, stepId);
-            }
-        }
-        
-        function deleteStep(operationId, stepId) {
-            const stepCard = document.querySelector(`[data-step-id="${stepId}"][data-operation-id="${operationId}"]`);
-            if (stepCard) {
-                // Animate removal
-                stepCard.style.transition = 'opacity 0.3s, transform 0.3s';
-                stepCard.style.opacity = '0';
-                stepCard.style.transform = 'translateX(-20px)';
-                
-                setTimeout(() => {
-                    // Also remove flow arrow after step if exists
-                    const nextSibling = stepCard.nextElementSibling;
-                    if (nextSibling && nextSibling.classList.contains('text-center')) {
-                        nextSibling.remove();
-                    }
-                    stepCard.remove();
-                    
-                    // Update step count badge
-                    updateStepCount(operationId);
-                    
-                    // In real implementation, POST to server
-                    console.log(`Deleted step ${stepId} from operation ${operationId}`);
-                }, 300);
-            }
-        }
-        
-        function updateStepCount(operationId) {
-            const operationCard = document.querySelector(`[data-operation-id="${operationId}"]`);
-            if (operationCard) {
-                const stepCount = operationCard.querySelectorAll('[data-step-id]').length;
-                const badge = operationCard.querySelector('.badge.bg-light');
-                if (badge && badge.textContent.includes('step')) {
-                    badge.textContent = `${stepCount} step(s)`;
-                }
-            }
-        }
-        
-        // Step editing functions
-        function addConditionalToStep(operationId, stepId) {
-            const stepCard = document.querySelector(`[data-step-id="${stepId}"][data-operation-id="${operationId}"]`);
-            const editMode = stepCard.querySelector('.step-edit-mode');
-            
-            // Check if conditional already exists; show inline warning instead of alert
-            if (editMode.querySelector('.step-conditional')) {
-                const warn = document.createElement('div');
-                warn.className = 'alert alert-warning py-2 mb-2';
-                warn.textContent = 'This step already has a conditional. Remove it first to add a new one.';
-                editMode.prepend(warn);
-                setTimeout(() => warn.remove(), 2500);
-                return;
-            }
-            
-            const conditionalHtml = `
-                <div class="step-conditional alert alert-info mt-2 mb-2">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <strong>◆ Conditional Branch</strong>
-                            <div class="row g-2 mt-2">
-                                <div class="col-md-4">
-                                    <label class="form-label small">If:</label>
-                                    <select class="form-select form-select-sm">
-                                        <option>lastResponse</option>
-                                        <option>statusCode</option>
-                                        <option>paramValue</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small">&nbsp;</label>
-                                    <select class="form-select form-select-sm">
-                                        <option>==</option>
-                                        <option>!=</option>
-                                        <option>></option>
-                                        <option><</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small">Value:</label>
-                                    <input type="text" class="form-control form-control-sm" value="0x00">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small">Then:</label>
-                                    <select class="form-select form-select-sm">
-                                        <option>Continue</option>
-                                        <option>Skip to Step...</option>
-                                        <option>Fail</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="this.closest('.step-conditional').remove()">×</button>
-                    </div>
-                </div>
-            `;
-            
-            // Insert before the action buttons
-            const actionDiv = editMode.querySelector('.mt-3.pt-2.border-top');
-            actionDiv.insertAdjacentHTML('beforebegin', conditionalHtml);
-        }
-        
-        function addBranchToStep(operationId, stepId) {
-            const stepCard = document.querySelector(`[data-step-id="${stepId}"][data-operation-id="${operationId}"]`);
-            const editMode = stepCard.querySelector('.step-edit-mode');
-            
-            const branchHtml = `
-                <div class="step-branch alert alert-warning mt-2 mb-2">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <strong>🔀 Decision Branch</strong>
-                            <div class="row g-2 mt-2">
-                                <div class="col-md-6">
-                                    <label class="form-label small">✓ On Success:</label>
-                                    <select class="form-select form-select-sm">
-                                        <option>Continue to next step</option>
-                                        <option>Skip to Operation...</option>
-                                        <option>Complete workflow</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label small">✗ On Failure:</label>
-                                    <select class="form-select form-select-sm">
-                                        <option>Retry (max 3)</option>
-                                        <option>Skip to Rollback</option>
-                                        <option>Fail workflow</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="this.closest('.step-branch').remove()">×</button>
-                    </div>
-                </div>
-            `;
-            
-            // Insert before the action buttons
-            const actionDiv = editMode.querySelector('.mt-3.pt-2.border-top');
-            actionDiv.insertAdjacentHTML('beforebegin', branchHtml);
-        }
-        
-        function moveStep(operationId, stepId, direction) {
-            const stepCard = document.querySelector(`[data-step-id="${stepId}"][data-operation-id="${operationId}"]`);
-            if (!stepCard) return;
-            
-            const parent = stepCard.parentElement;
-            const allSteps = Array.from(parent.querySelectorAll('[data-step-id]'));
-            const currentIndex = allSteps.indexOf(stepCard);
-            
-            if (direction === 'up' && currentIndex > 0) {
-                const prevStep = allSteps[currentIndex - 1];
-                parent.insertBefore(stepCard, prevStep);
-                animateMove(stepCard, 'up');
-            } else if (direction === 'down' && currentIndex < allSteps.length - 1) {
-                const nextStep = allSteps[currentIndex + 1];
-                parent.insertBefore(nextStep, stepCard);
-                animateMove(stepCard, 'down');
-            }
-            
-            // Update step numbers after reordering
-            updateStepNumbers(operationId);
-            
-            // Rebuild "Add Step" buttons between steps
-            rebuildAddStepButtons(operationId);
-            
-            // In real implementation, POST to server to persist order
-            console.log(`Moved step ${stepId} ${direction} in operation ${operationId}`);
-        }
-        
-        function updateStepNumbers(operationId) {
-            const operationCard = document.querySelector(`[data-operation-id="${operationId}"]`);
-            if (!operationCard) return;
-            
-            const allSteps = Array.from(operationCard.querySelectorAll('[data-step-id]'));
-            allSteps.forEach((stepCard, index) => {
-                const stepNumber = index + 1;
-                const oldStepId = stepCard.getAttribute('data-step-id');
-                
-                // Update data attribute
-                stepCard.setAttribute('data-step-id', stepNumber);
-                
-                // Update all step badges (both view and edit mode)
-                const badges = stepCard.querySelectorAll('.badge');
-                badges.forEach(badge => {
-                    if (badge.textContent.includes('Step')) {
-                        badge.textContent = `Step ${stepNumber}`;
-                    }
-                });
-                
-                // Update view/edit mode element IDs
-                const viewMode = stepCard.querySelector(`[id^="step-view-"]`);
-                const editMode = stepCard.querySelector(`[id^="step-edit-"]`);
-                if (viewMode) viewMode.id = `step-view-${operationId}-${stepNumber}`;
-                if (editMode) editMode.id = `step-edit-${operationId}-${stepNumber}`;
-                
-                // Update move button onclick handlers
-                const moveButtons = stepCard.querySelectorAll('.btn-group button[title="Move Up"], .btn-group button[title="Move Down"]');
-                moveButtons.forEach(btn => {
-                    const direction = btn.title === 'Move Up' ? 'up' : 'down';
-                    btn.setAttribute('onclick', `event.stopPropagation(); moveStep(${operationId}, ${stepNumber}, '${direction}')`);
-                });
-                
-                // Update edit step button onclick
-                const editBtn = stepCard.querySelector('button[title="Edit Step"]');
-                if (editBtn) {
-                    editBtn.setAttribute('onclick', `toggleStepEditMode(${operationId}, ${stepNumber})`);
-                }
-                
-                // Update delete step buttons onclick (there may be multiple - one in view, one in edit mode)
-                const deleteButtons = stepCard.querySelectorAll('button[title="Delete Step"]');
-                deleteButtons.forEach(btn => {
-                    // Get command name from the step card
-                    const cmdName = stepCard.querySelector('.fw-semibold')?.textContent || 'this step';
-                    btn.setAttribute('onclick', `confirmDeleteStep(${operationId}, ${stepNumber}, '${cmdName}')`);
-                });
-            });
-        }
-        
-        function rebuildAddStepButtons(operationId) {
-            const operationCard = document.querySelector(`[data-operation-id="${operationId}"]`);
-            if (!operationCard) return;
-            
-            const operationBody = operationCard.querySelector('.card-body');
-            if (!operationBody) return;
-            
-            // Remove all existing "Add Step" buttons between steps (not the final one, and not ones inside step cards)
-            const existingAddStepDivs = operationBody.querySelectorAll(':scope > .operation-edit-item:not(.border-top), :scope > .text-center.my-2.operation-edit-item');
-            existingAddStepDivs.forEach(div => {
-                // Only remove if it's a direct child of operation body (not inside a step card)
-                if (div.parentElement === operationBody) {
-                    div.remove();
-                }
-            });
-            
-            // Remove all existing flow arrows between steps
-            const existingFlowArrows = operationBody.querySelectorAll(':scope > .text-center.my-1');
-            existingFlowArrows.forEach(div => {
-                // Only remove if it's a flow arrow (contains the small arrow styling) and is a direct child
-                if (div.parentElement === operationBody && 
-                    (div.querySelector('[style*="border-left: 4px"]') || div.querySelector('[style*="border-left:4px"]'))) {
-                    div.remove();
-                }
-            });
-            
-            // Get all step cards in their new order
-            const allSteps = Array.from(operationBody.querySelectorAll(':scope > [data-step-id]'));
-            
-            // Check if operation is in edit mode
-            const isEditMode = operationBody.querySelector('.operation-edit-item[style*="display: block"]') !== null ||
-                               operationBody.querySelector('.operation-edit-item:not([style*="display: none"])') !== null;
-            
-            // Add "Add Step" buttons and flow arrows between each step
-            allSteps.forEach((stepCard, index) => {
-                if (index < allSteps.length - 1) {
-                    const stepNumber = index + 1;
-                    
-                    // Create "Add Step" button div
-                    const addStepDiv = document.createElement('div');
-                    addStepDiv.className = 'text-center my-2 operation-edit-item';
-                    addStepDiv.setAttribute('data-operation', operationId);
-                    addStepDiv.style.marginLeft = '30px';
-                    addStepDiv.style.display = isEditMode ? 'block' : 'none';
-                    addStepDiv.innerHTML = `
-                        <div style="width: 2px; height: 8px; background-color: #6c757d; margin: 0 auto;"></div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" style="font-size: 10px; padding: 2px 8px; border-style: dashed;"
-                                onclick="showAddStepModal(${operationId}, ${stepNumber})">
-                            ➕ Add Step
-                        </button>
-                        <div style="width: 2px; height: 8px; background-color: #6c757d; margin: 0 auto;"></div>
-                        <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #6c757d; margin: 0 auto;"></div>
-                    `;
-                    
-                    // Create flow arrow div
-                    const flowArrowDiv = document.createElement('div');
-                    flowArrowDiv.className = 'text-center my-1';
-                    flowArrowDiv.style.marginLeft = '30px';
-                    flowArrowDiv.innerHTML = `
-                        <div style="width: 2px; height: 12px; background-color: #dee2e6; margin: 0 auto;"></div>
-                        <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #dee2e6; margin: 0 auto;"></div>
-                    `;
-                    
-                    // Insert after current step card
-                    stepCard.after(addStepDiv);
-                    addStepDiv.after(flowArrowDiv);
-                }
-            });
-        }
-        
-        function animateMove(element, direction) {
-            element.style.transition = 'transform 0.2s';
-            element.style.transform = direction === 'up' ? 'translateY(-10px)' : 'translateY(10px)';
-            setTimeout(() => {
-                element.style.transform = 'translateY(0)';
-            }, 200);
-        }
-        
-        function saveStepChanges(operationId, stepId) {
-            // In real implementation, POST changes to server
-            console.log(`Saving changes to step ${stepId} in operation ${operationId}`);
-            toggleStepEditMode(operationId, stepId);
-        }
-        
-        // ==========================================
-        // Operation Type Toggle Functionality
-        // ==========================================
-        function switchOperationType(operationId, newType) {
-            const operationCard = document.querySelector(`[data-operation-id="${operationId}"]`) || 
-                                  document.getElementById(`operation-header-${operationId}`)?.closest('.card');
-            if (!operationCard) return;
-            
-            const header = operationCard.querySelector('.card-header');
-            const content = operationCard.querySelector('.card-body');
-            const typeBadge = header.querySelector('.badge.bg-primary, .badge.bg-secondary, .badge.bg-info');
-            const toggleButtons = header.querySelectorAll('.btn-group .btn');
-            
-            // Update button states
-            toggleButtons.forEach(btn => {
-                btn.classList.remove('btn-primary', 'btn-secondary', 'btn-info');
-                btn.classList.add('btn-outline-secondary');
-            });
-            
-            // Update based on new type
-            if (newType === 'multi-command') {
-                typeBadge.textContent = 'PICCOLO Multi-Command';
-                typeBadge.className = 'badge bg-primary ms-2';
-                toggleButtons[1].classList.remove('btn-outline-secondary');
-                toggleButtons[1].classList.add('btn-primary');
-                operationCard.classList.remove('border-secondary', 'border-info');
-                operationCard.classList.add('border-primary');
-                header.classList.remove('bg-secondary', 'bg-info');
-                header.classList.add('bg-primary');
-                
-                // Show aggregated payload section
-                showAggregatedPayload(operationId, content);
-                
-            } else if (newType === 'sequential') {
-                typeBadge.textContent = 'Sequential';
-                typeBadge.className = 'badge bg-secondary ms-2';
-                toggleButtons[0].classList.remove('btn-outline-secondary');
-                toggleButtons[0].classList.add('btn-secondary');
-                operationCard.classList.remove('border-primary', 'border-info');
-                operationCard.classList.add('border-secondary');
-                header.classList.remove('bg-primary', 'bg-info');
-                header.classList.add('bg-secondary');
-                
-                // Hide aggregated payload section
-                hideAggregatedPayload(operationId, content);
-                
-            } else if (newType === 'loop') {
-                typeBadge.textContent = 'Loop';
-                typeBadge.className = 'badge bg-info ms-2';
-                if (toggleButtons[2]) {
-                    toggleButtons[2].classList.remove('btn-outline-secondary');
-                    toggleButtons[2].classList.add('btn-info');
-                }
-                operationCard.classList.remove('border-primary', 'border-secondary');
-                operationCard.classList.add('border-info');
-            }
-            
-            // Store operation type
-            operationCard.dataset.operationType = newType;
-            
-            console.log(`Operation ${operationId} switched to ${newType}`);
-        }
-        
-        function showAggregatedPayload(operationId, contentElement) {
-            // Check if aggregated payload section already exists
-            let aggregatedSection = contentElement.querySelector('.aggregated-payload-section');
-            if (aggregatedSection) {
-                aggregatedSection.style.display = 'block';
-                return;
-            }
-            
-            // Collect all payloads from steps
-            const payloads = [];
-            contentElement.querySelectorAll('code').forEach(code => {
-                const text = code.textContent;
-                if (text.includes('0x')) {
-                    // Extract hex values
-                    const matches = text.match(/0x[0-9A-Fa-f]+/g);
-                    if (matches) {
-                        payloads.push(...matches);
-                    }
-                }
-            });
-            
-            // Create aggregated payload display
-            aggregatedSection = document.createElement('div');
-            aggregatedSection.className = 'aggregated-payload-section alert alert-primary mb-3';
-            aggregatedSection.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <strong>📦 Aggregated Payload (Multi-Command)</strong>
-                        <div class="small mt-1">
-                            <code>${payloads.length > 0 ? '[' + payloads.join(', ') + ']' : '[No payloads]'}</code>
-                        </div>
-                        <div class="small text-muted mt-1">
-                            Total: ${payloads.length} bytes • Sent as single PICCOLO transaction
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary">📋 Copy</button>
-                </div>
-            `;
-            contentElement.insertBefore(aggregatedSection, contentElement.firstChild);
-        }
-        
-        function hideAggregatedPayload(operationId, contentElement) {
-            const aggregatedSection = contentElement.querySelector('.aggregated-payload-section');
-            if (aggregatedSection) {
-                aggregatedSection.style.display = 'none';
-            }
-        }
-        
-        // ==========================================
-        // Add Operation Modal Functionality
-        // ==========================================
-        function showAddOperationModal(insertAfterOperationId = null) {
-            document.getElementById('insertAfterOperation').value = insertAfterOperationId || '';
-            document.getElementById('newOperationName').value = '';
-            document.getElementById('selectedOperationType').value = '';
-            document.getElementById('loopConfiguration').style.display = 'none';
-            document.getElementById('createOperationBtn').disabled = true;
-            
-            // Reset card selections
-            document.querySelectorAll('.operation-type-card').forEach(card => {
-                card.classList.remove('border-primary', 'bg-light');
-            });
-            
-            new bootstrap.Modal(document.getElementById('addOperationModal')).show();
-        }
-        
-        function selectOperationType(type) {
-            document.getElementById('selectedOperationType').value = type;
-            document.getElementById('createOperationBtn').disabled = false;
-            
-            // Update card visual selection
-            document.querySelectorAll('.operation-type-card').forEach(card => {
-                card.classList.remove('border-primary', 'bg-light');
-                if (card.dataset.type === type) {
-                    card.classList.add('border-primary', 'bg-light');
-                }
-            });
-            
-            // Show/hide loop configuration
-            if (type === 'loop') {
-                document.getElementById('loopConfiguration').style.display = 'block';
-            } else {
-                document.getElementById('loopConfiguration').style.display = 'none';
-            }
-        }
-        
-        function createOperation() {
-            const name = document.getElementById('newOperationName').value || 'New Operation';
-            const type = document.getElementById('selectedOperationType').value;
-            const insertAfter = document.getElementById('insertAfterOperation').value;
-            
-            console.log(`Creating ${type} operation: ${name}, insert after: ${insertAfter || 'end'}`);
-            
-            // In a real implementation, this would:
-            // 1. POST to server to create the operation
-            // 2. Refresh the workflow section
-            // For now, we'll create a demo operation in the DOM
-            
-            const operationHtml = createOperationHtml(name, type, Date.now());
-            
-            if (insertAfter) {
-                // Insert after specific operation
-                const targetButton = document.querySelector(`[onclick*="showAddOperationModal(${insertAfter})"]`);
-                if (targetButton) {
-                    const insertPoint = targetButton.closest('.text-center');
-                    insertPoint.insertAdjacentHTML('afterend', operationHtml);
-                }
-            } else {
-                // Insert at end
-                const commandFlow = document.querySelector('.command-flow');
-                if (commandFlow) {
-                    commandFlow.insertAdjacentHTML('beforeend', operationHtml);
-                }
-            }
-            
-            bootstrap.Modal.getInstance(document.getElementById('addOperationModal')).hide();
-        }
-        
-        function createOperationHtml(name, type, id) {
-            const typeConfig = {
-                'sequential': { icon: '🔗', color: 'secondary', badge: 'Sequential' },
-                'multi-command': { icon: '📦', color: 'primary', badge: 'PICCOLO Multi-Command' },
-                'loop': { icon: '🔄', color: 'info', badge: 'Loop' }
-            };
-            const config = typeConfig[type] || typeConfig['sequential'];
-            
-            return `
-                <div class="text-center mb-3">
-                    <div style="width: 3px; height: 10px; background-color: #0d6efd; margin: 0 auto;"></div>
-                    <button type="button" class="btn btn-sm btn-outline-primary" style="font-size: 10px; padding: 3px 12px; border-style: dashed;"
-                            onclick="showAddOperationModal(${id})">
-                        ➕ Add Operation Here
-                    </button>
-                    <div style="width: 3px; height: 10px; background-color: #0d6efd; margin: 0 auto;"></div>
-                    <div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 10px solid #0d6efd; margin: 0 auto;"></div>
-                </div>
-                <div class="card mb-3 border-${config.color}" data-operation-id="${id}" data-operation-type="${type}">
-                    <div class="card-header bg-${config.color} bg-opacity-10" 
-                         id="operation-header-${id}"
-                         style="cursor: pointer;"
-                         onclick="toggleOperation(${id})">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center">
-                                <span class="expand-icon me-2 fw-bold">▼</span>
-                                <strong>${config.icon} Operation: ${name}</strong>
-                                <span class="badge bg-${config.color} ms-2">${config.badge}</span>
-                                <span class="badge bg-light text-dark ms-1">0 step(s)</span>
-                                <span class="badge bg-success ms-1">✓ Valid</span>
-                            </div>
-                            <div onclick="event.stopPropagation();">
-                                <div class="btn-group btn-group-sm me-2">
-                                    <button type="button" class="btn ${type === 'sequential' ? 'btn-secondary' : 'btn-outline-secondary'}" 
-                                            onclick="switchOperationType(${id}, 'sequential')">Sequential</button>
-                                    <button type="button" class="btn ${type === 'multi-command' ? 'btn-primary' : 'btn-outline-primary'}" 
-                                            onclick="switchOperationType(${id}, 'multi-command')">Multi-Cmd</button>
-                                    <button type="button" class="btn ${type === 'loop' ? 'btn-info' : 'btn-outline-info'}" 
-                                            onclick="switchOperationType(${id}, 'loop')">Loop</button>
-                                </div>
-                                <button type="button" class="btn btn-sm btn-outline-secondary me-1">⚙️</button>
-                                <button type="button" class="btn btn-sm btn-outline-danger">🗑️</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body p-2" id="operation-content-${id}">
-                        ${type === 'loop' ? createLoopConfigurationHtml(id) : ''}
-                        <div class="text-center py-3">
-                            <p class="text-muted small mb-2">No steps defined</p>
-                            <button type="button" class="btn btn-sm btn-outline-success" onclick="showAddStepModal(${id}, null)">
-                                ➕ Add First Step
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        function createLoopConfigurationHtml(operationId) {
-            return `
-                <div class="alert alert-info mb-3 loop-config-display">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <strong>🔄 Loop Configuration</strong>
-                            <div class="small mt-1">
-                                <span class="badge bg-secondary me-1">Max: 100 iterations</span>
-                                <span class="badge bg-secondary me-1">Timeout: 30s</span>
-                            </div>
-                            <div class="small mt-1 text-muted">
-                                Exit when: <code>iterationCount >= 10 OR response == 0x00</code>
-                            </div>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-info" onclick="editLoopConfiguration(${operationId})">
-                            ⚙️ Configure
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
-        
-        // ==========================================
-        // Add Step Modal Functionality
-        // ==========================================
-        function showAddStepModal(operationId, afterStepId = null) {
-            document.getElementById('insertInOperation').value = operationId;
-            document.getElementById('insertAfterStep').value = afterStepId || '';
-            document.getElementById('selectedStepType').value = '';
-            document.getElementById('createStepBtn').disabled = true;
-            
-            // Reset card selections
-            document.querySelectorAll('.step-type-card').forEach(card => {
-                card.classList.remove('border-primary', 'bg-light');
-            });
-            
-            new bootstrap.Modal(document.getElementById('addStepModal')).show();
-        }
-        
-        function selectStepType(type) {
-            document.getElementById('selectedStepType').value = type;
-            document.getElementById('createStepBtn').disabled = false;
-            
-            // Update card visual selection
-            document.querySelectorAll('.step-type-card').forEach(card => {
-                card.classList.remove('border-primary', 'bg-light');
-            });
-            event.currentTarget.classList.add('border-primary', 'bg-light');
-        }
-        
-        function createStep() {
-            const stepType = document.getElementById('selectedStepType').value;
-            const operationId = document.getElementById('insertInOperation').value;
-            const afterStepId = document.getElementById('insertAfterStep').value;
-            
-            bootstrap.Modal.getInstance(document.getElementById('addStepModal')).hide();
-            
-            // Show step configuration modal based on type
-            showStepConfigurationModal(stepType, operationId, afterStepId);
-        }
-        
-        function showStepConfigurationModal(stepType, operationId, afterStepId) {
-            const modal = document.getElementById('configureStepModal');
-            const title = document.getElementById('configureStepTitle');
-            const body = document.getElementById('configureStepBody');
-            
-            const stepConfigs = {
-                'piccolo-command': {
-                    title: '📡 Configure PICCOLO Command',
-                    html: `
-                        <div class="mb-3">
-                            <label class="form-label">Select Command</label>
-                            <select class="form-select" id="stepCommandSelect">
-                                <option value="">-- Select a command --</option>
-                                <option value="0x01">WAKE_DEVICE (0x01)</option>
-                                <option value="0x02">CONFIGURE_RADIO (0x02)</option>
-                                <option value="0x03">VERIFY_CONNECTION (0x03)</option>
-                                <option value="0x10">GET_STATUS (0x10)</option>
-                                <option value="0x20">WRITE_FIRMWARE (0x20)</option>
-                                <option value="0x30">VALIDATE_CRC (0x30)</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Payload (hex bytes, comma-separated)</label>
-                            <input type="text" class="form-control" id="stepPayload" placeholder="0x00, 0x01, 0x02">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Timeout (ms)</label>
-                            <input type="number" class="form-control" id="stepTimeout" value="1000">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Notes (optional)</label>
-                            <textarea class="form-control" id="stepNotes" rows="2"></textarea>
-                        </div>
-                    `
-                },
-                'command-with-response': {
-                    title: '📨 Configure Command with Response Check',
-                    html: `
-                        <div class="mb-3">
-                            <label class="form-label">Select Command</label>
-                            <select class="form-select" id="stepCommandSelect">
-                                <option value="">-- Select a command --</option>
-                                <option value="0x10">GET_STATUS (0x10)</option>
-                                <option value="0x03">VERIFY_CONNECTION (0x03)</option>
-                                <option value="0x30">VALIDATE_CRC (0x30)</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Expected Response</label>
-                            <input type="text" class="form-control" id="expectedResponse" placeholder="0x00">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Store Response In Variable</label>
-                            <input type="text" class="form-control" id="responseVariable" placeholder="lastResponse">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Timeout (ms)</label>
-                            <input type="number" class="form-control" id="stepTimeout" value="1000">
-                        </div>
-                    `
-                },
-                'param-read': {
-                    title: '📖 Configure Parameter Read',
-                    html: `
-                        <div class="mb-3">
-                            <label class="form-label">Search Parameter</label>
-                            <div class="position-relative">
-                                <input type="text" class="form-control" id="parameterSearchInput" 
-                                       placeholder="Type parameter name, context, or group..."
-                                       autocomplete="off">
-                                <div class="small text-muted mt-1">
-                                    <kbd>↑</kbd><kbd>↓</kbd> to navigate, <kbd>Tab</kbd> or <kbd>Enter</kbd> to select
-                                </div>
-                                <div id="paramSearchDropdown" class="param-search-dropdown" style="display: none;"></div>
-                            </div>
-                        </div>
-                        <div id="selectedParamDisplay" style="display: none;" class="mb-3"></div>
-                        <div class="mb-3">
-                            <label class="form-label">Store In Variable</label>
-                            <input type="text" class="form-control" id="targetVariable" placeholder="readValue">
-                        </div>
-                    `,
-                    onShow: function() {
-                        setTimeout(() => initParameterSearch('parameterSearchInput', 'paramSearchDropdown'), 100);
-                        clearParamSelection();
-                    }
-                },
-                'param-write': {
-                    title: '✏️ Configure Parameter Write',
-                    html: `
-                        <div class="mb-3">
-                            <label class="form-label">Search Parameter</label>
-                            <div class="position-relative">
-                                <input type="text" class="form-control" id="parameterSearchInput" 
-                                       placeholder="Type parameter name, context, or group..."
-                                       autocomplete="off">
-                                <div class="small text-muted mt-1">
-                                    <kbd>↑</kbd><kbd>↓</kbd> to navigate, <kbd>Tab</kbd> or <kbd>Enter</kbd> to select
-                                </div>
-                                <div id="paramSearchDropdown" class="param-search-dropdown" style="display: none;"></div>
-                            </div>
-                        </div>
-                        <div id="selectedParamDisplay" style="display: none;" class="mb-3"></div>
-                        <div class="mb-3">
-                            <label class="form-label">Value Source</label>
-                            <select class="form-select" id="valueSource" onchange="toggleValueInput(this.value)">
-                                <option value="constant">Constant Value</option>
-                                <option value="variable">From Variable</option>
-                            </select>
-                        </div>
-                        <div class="mb-3" id="constantValueSection">
-                            <label class="form-label">Value</label>
-                            <input type="text" class="form-control" id="paramValue" placeholder="64">
-                        </div>
-                        <div class="mb-3" id="variableValueSection" style="display:none;">
-                            <label class="form-label">Variable Name</label>
-                            <input type="text" class="form-control" id="sourceVariable" placeholder="calculatedValue">
-                        </div>
-                    `,
-                    onShow: function() {
-                        setTimeout(() => initParameterSearch('parameterSearchInput', 'paramSearchDropdown'), 100);
-                        clearParamSelection();
-                    }
-                },
-                'delay': {
-                    title: '⏱️ Configure Delay',
-                    html: `
-                        <div class="mb-3">
-                            <label class="form-label">Delay Duration (ms)</label>
-                            <input type="number" class="form-control" id="delayMs" value="500">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Notes (optional)</label>
-                            <input type="text" class="form-control" id="delayNotes" placeholder="Wait for device to stabilize">
-                        </div>
-                    `
-                },
-                'math-calc': {
-                    title: '➕ Configure Calculation',
-                    html: `
-                        <div class="mb-3">
-                            <label class="form-label">Result Variable</label>
-                            <input type="text" class="form-control" id="resultVar" placeholder="result">
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-5">
-                                <label class="form-label">Operand 1</label>
-                                <input type="text" class="form-control" id="operand1" placeholder="var or value">
-                            </div>
-                            <div class="col-2">
-                                <label class="form-label">Op</label>
-                                <select class="form-select" id="operator">
-                                    <option value="+">+</option>
-                                    <option value="-">-</option>
-                                    <option value="*">×</option>
-                                    <option value="/">/</option>
-                                    <option value="%">%</option>
-                                </select>
-                            </div>
-                            <div class="col-5">
-                                <label class="form-label">Operand 2</label>
-                                <input type="text" class="form-control" id="operand2" placeholder="var or value">
-                            </div>
-                        </div>
-                    `
-                },
-                'conditional': {
-                    title: '◆ Configure Conditional Branch',
-                    html: `
-                        <div class="mb-3">
-                            <label class="form-label">Condition</label>
-                            <div class="row g-2">
-                                <div class="col-4">
-                                    <input type="text" class="form-control" placeholder="variable" id="condVar">
-                                </div>
-                                <div class="col-2">
-                                    <select class="form-select" id="condOp">
-                                        <option>==</option>
-                                        <option>!=</option>
-                                        <option>&gt;</option>
-                                        <option>&gt;=</option>
-                                        <option>&lt;</option>
-                                        <option>&lt;=</option>
-                                    </select>
-                                </div>
-                                <div class="col-4">
-                                    <input type="text" class="form-control" placeholder="value" id="condVal">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">If True → </label>
-                            <select class="form-select" id="trueBranch">
-                                <option value="continue">Continue to next step</option>
-                                <option value="skip">Skip to step...</option>
-                                <option value="break">Break loop</option>
-                                <option value="fail">Fail operation</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">If False → </label>
-                            <select class="form-select" id="falseBranch">
-                                <option value="continue">Continue to next step</option>
-                                <option value="skip">Skip to step...</option>
-                                <option value="break">Break loop</option>
-                                <option value="fail">Fail operation</option>
-                            </select>
-                        </div>
-                    `
-                }
-            };
-            
-            const config = stepConfigs[stepType] || { title: 'Configure Step', html: '<p>Configuration not available for this step type.</p>' };
-            title.textContent = config.title;
-            body.innerHTML = config.html;
-            body.dataset.stepType = stepType;
-            body.dataset.operationId = operationId;
-            body.dataset.afterStepId = afterStepId;
-            
-            new bootstrap.Modal(modal).show();
-            
-            // Call onShow callback if it exists (for initializing autocomplete, etc.)
-            if (config.onShow) {
-                config.onShow();
-            }
-        }
-        
-        function toggleValueInput(source) {
-            document.getElementById('constantValueSection').style.display = source === 'constant' ? 'block' : 'none';
-            document.getElementById('variableValueSection').style.display = source === 'variable' ? 'block' : 'none';
-        }
-        
-        function saveStep() {
-            const body = document.getElementById('configureStepBody');
-            const stepType = body.dataset.stepType;
-            const operationId = body.dataset.operationId;
-            const afterStepIdRaw = body.dataset.afterStepId;
-            const afterStepId = afterStepIdRaw && afterStepIdRaw !== '' ? parseInt(afterStepIdRaw) : null;
-            
-            console.log(`Saving step of type ${stepType} to operation ${operationId} (after step: ${afterStepId ?? 'end'})`);
-
-            // Locate operation body
-            const operationCard = document.querySelector(`[data-operation-id="${operationId}"]`);
-            const operationBody = operationCard?.querySelector('.card-body');
-            if (!operationCard || !operationBody) {
-                // Non-blocking notification
-                if (typeof showToast === 'function') {
-                    showToast('Could not find target operation container.', 'danger');
-                } else {
-                    console.warn('Could not find target operation container.');
-                }
-                return;
-            }
-
-            // Build new step card markup for supported types
-            let newStepCard = document.createElement('div');
-            newStepCard.className = 'card mb-2';
-            newStepCard.style.marginLeft = '10px';
-            newStepCard.setAttribute('data-step-id', 'NEW');
-            newStepCard.setAttribute('data-operation-id', operationId);
-            newStepCard.setAttribute('data-edit-mode', 'false');
-
-            if (stepType === 'param-read') {
-                // Validate parameter selection
-                const selected = (typeof paramSearchState !== 'undefined') ? paramSearchState.selectedParam : null;
-                const targetVar = document.getElementById('targetVariable')?.value || 'readValue';
-                if (!selected) {
-                    // Inline validation message instead of blocking alert
-                    const input = document.getElementById('parameterSearchInput');
-                    if (input) {
-                        input.classList.add('is-invalid');
-                        let msg = document.getElementById('paramValidationMessage');
-                        if (!msg) {
-                            msg = document.createElement('div');
-                            msg.id = 'paramValidationMessage';
-                            msg.className = 'invalid-feedback d-block';
-                            input.parentElement?.appendChild(msg);
-                        }
-                        msg.textContent = 'Please select a parameter to read.';
-                    }
-                    return;
-                }
-
-                const titleText = `Read ${selected.name}`;
-                const contextInfo = `${selected.context} › ${selected.group}`;
-                const typeInfo = selected.type;
-
-                newStepCard.innerHTML = `
-                    <div class="card-body py-2 px-3">
-                        <!-- VIEW MODE -->
-                        <div class="step-view-mode" id="step-view-${operationId}-NEW">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <span class="badge bg-dark me-2" style="min-width: 55px;">Step NEW</span>
-                                    <span class="fw-semibold me-2">${titleText}</span>
-                                    <span class="badge bg-success ms-2">📖</span>
-                                    <span class="small text-muted ms-2">${contextInfo} • ${typeInfo}</span>
-                                </div>
-                                <div class="d-flex align-items-center">
-                                    <div class="btn-group btn-group-sm me-2 operation-edit-item" data-operation="${operationId}" style="display: none;">
-                                        <button type="button" class="btn btn-outline-secondary" title="Move Up" onclick="event.stopPropagation(); moveStep(${operationId}, 'NEW', 'up')">↑</button>
-                                        <button type="button" class="btn btn-outline-secondary" title="Move Down" onclick="event.stopPropagation(); moveStep(${operationId}, 'NEW', 'down')">↓</button>
-                                    </div>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Edit Step" onclick="toggleStepEditMode(${operationId}, 'NEW')">⚙️</button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Delete Step" onclick="confirmDeleteStep(${operationId}, 'NEW', '${titleText}')">🗑️</button>
-                                </div>
-                            </div>
-                            <div class="small text-muted mt-1 ps-5">Store in variable: <strong>${targetVar}</strong></div>
-                        </div>
-                        
-                        <!-- EDIT MODE -->
-                        <div class="step-edit-mode" id="step-edit-${operationId}-NEW" style="display: none;">
-                            <div class="d-flex align-items-center mb-2">
-                                <span class="badge bg-dark me-2">Step NEW</span>
-                                <strong class="me-2">${titleText}</strong>
-                                <span class="badge bg-success ms-2">📖 Read</span>
-                            </div>
-                            <div class="small mb-2">
-                                <strong>Parameter:</strong> ${selected.name} <span class="badge bg-secondary ms-1" style="font-size: 11px;">${typeInfo}</span><br>
-                                <span class="text-muted">${contextInfo}</span>
-                            </div>
-                            <div class="small mb-2"><strong>Store In:</strong> ${targetVar}</div>
-                            <div class="mt-3 pt-2 border-top">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div></div>
-                                    <div>
-                                        <button type="button" class="btn btn-sm btn-success me-1" onclick="saveStepChanges(${operationId}, 'NEW')">✓ Done</button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleStepEditMode(${operationId}, 'NEW')">Cancel</button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" title="Delete Step" onclick="confirmDeleteStep(${operationId}, 'NEW', '${titleText}')">🗑️</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else {
-                // Default placeholder for unsupported types in demo
-                newStepCard.innerHTML = `
-                    <div class="card-body py-2 px-3">
-                        <div class="step-view-mode" id="step-view-${operationId}-NEW">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <span class="badge bg-dark me-2" style="min-width: 55px;">Step NEW</span>
-                                    <span class="fw-semibold me-2">${stepType}</span>
-                                </div>
-                                <div class="d-flex align-items-center">
-                                    <div class="btn-group btn-group-sm me-2 operation-edit-item" data-operation="${operationId}" style="display: none;">
-                                        <button type="button" class="btn btn-outline-secondary" title="Move Up" onclick="event.stopPropagation(); moveStep(${operationId}, 'NEW', 'up')">↑</button>
-                                        <button type="button" class="btn btn-outline-secondary" title="Move Down" onclick="event.stopPropagation(); moveStep(${operationId}, 'NEW', 'down')">↓</button>
-                                    </div>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary me-1" title="Edit Step" onclick="toggleStepEditMode(${operationId}, 'NEW')">⚙️</button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Delete Step" onclick="confirmDeleteStep(${operationId}, 'NEW', '${stepType}')">🗑️</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="step-edit-mode" id="step-edit-${operationId}-NEW" style="display: none;">
-                            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-                                <div></div>
-                                <div>
-                                    <button type="button" class="btn btn-sm btn-success me-1" onclick="saveStepChanges(${operationId}, 'NEW')">✓ Done</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleStepEditMode(${operationId}, 'NEW')">Cancel</button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" title="Delete Step" onclick="confirmDeleteStep(${operationId}, 'NEW', '${stepType}')">🗑️</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            // Insert card at desired position
-            if (afterStepId !== null) {
-                const afterCard = operationBody.querySelector(`:scope > [data-step-id="${afterStepId}"]`);
-                if (afterCard) {
-                    afterCard.after(newStepCard);
-                } else {
-                    operationBody.appendChild(newStepCard);
-                }
-            } else {
-                // Insert before final "Add Step to This Operation" row if present
-                const endAddRow = operationBody.querySelector(':scope > .operation-edit-item.border-top');
-                if (endAddRow) {
-                    operationBody.insertBefore(newStepCard, endAddRow);
-                } else {
-                    operationBody.appendChild(newStepCard);
-                }
-            }
-
-            // Renumber and refresh UI helpers
-            updateStepNumbers(parseInt(operationId));
-            rebuildAddStepButtons(parseInt(operationId));
-            updateStepCount(parseInt(operationId));
-
-            // Close modal (no blocking alert)
-            bootstrap.Modal.getInstance(document.getElementById('configureStepModal')).hide();
-        }
-
-        // Lightweight toast helper (non-blocking)
-        function showToast(message, variant = 'info') {
-            let container = document.getElementById('toast-container');
-            if (!container) {
-                container = document.createElement('div');
-                container.id = 'toast-container';
-                container.style.position = 'fixed';
-                container.style.top = '12px';
-                container.style.right = '12px';
-                container.style.zIndex = '1060';
-                document.body.appendChild(container);
-            }
-            const toast = document.createElement('div');
-            toast.className = `alert alert-${variant} shadow-sm py-2 px-3 mb-2`;
-            toast.textContent = message;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 2500);
-        }
-        
-        // ==========================================
-        // Loop Configuration Functions
-        // ==========================================
-        function addLoopVariable() {
-            const container = document.getElementById('loopVariablesContainer');
-            const newRow = document.createElement('div');
-            newRow.className = 'row g-2 mb-2 loop-variable-row';
-            newRow.innerHTML = `
-                <div class="col-md-4">
-                    <input type="text" class="form-control form-control-sm" placeholder="Variable Name">
-                </div>
-                <div class="col-md-3">
-                    <select class="form-select form-select-sm">
-                        <option>Counter (auto-increment)</option>
-                        <option>Timer (elapsed ms)</option>
-                        <option>Custom Value</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <input type="number" class="form-control form-control-sm" placeholder="Initial Value" value="0">
-                </div>
-                <div class="col-md-2">
-                    <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="this.closest('.loop-variable-row').remove()">🗑️</button>
-                </div>
-            `;
-            container.appendChild(newRow);
-        }
-        
-        function addConditionGroup() {
-            const container = document.getElementById('exitConditionsContainer');
-            const groupCount = container.querySelectorAll('.condition-group').length + 1;
-            const newGroup = document.createElement('div');
-            newGroup.className = 'condition-group mb-3 p-2 border rounded';
-            newGroup.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <div>
-                        <span class="badge bg-warning me-2">OR</span>
-                        <span class="badge bg-info">Condition Group ${groupCount}</span>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.condition-group').remove()">Remove Group</button>
-                </div>
-                <div class="condition-row mb-2">
-                    <div class="row g-2 align-items-center">
-                        <div class="col-md-3">
-                            <select class="form-select form-select-sm" onchange="updateConditionSource(this)">
-                                <option value="variable">Variable</option>
-                                <option value="parameter">Parameter Read</option>
-                                <option value="response">Command Response</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <select class="form-select form-select-sm condition-source-select">
-                                <option>iterationCount</option>
-                                <option>elapsedTime</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <select class="form-select form-select-sm">
-                                <option>==</option>
-                                <option>!=</option>
-                                <option>&gt;</option>
-                                <option>&gt;=</option>
-                                <option>&lt;</option>
-                                <option>&lt;=</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <input type="text" class="form-control form-control-sm" placeholder="Value">
-                        </div>
-                        <div class="col-md-2">
-                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.condition-row').remove()">🗑️</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addConditionToGroup(this, 'AND')">+ AND</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addConditionToGroup(this, 'OR')">+ OR</button>
-                </div>
-            `;
-            container.appendChild(newGroup);
-        }
-        
-        function addConditionToGroup(button, logicOp) {
-            const group = button.closest('.condition-group');
-            const buttonContainer = button.parentElement;
-            const newRow = document.createElement('div');
-            newRow.className = 'condition-row mb-2';
-            newRow.innerHTML = `
-                <div class="row g-2 align-items-center">
-                    <div class="col-md-1 text-center">
-                        <span class="badge bg-secondary">${logicOp}</span>
-                    </div>
-                    <div class="col-md-2">
-                        <select class="form-select form-select-sm" onchange="updateConditionSource(this)">
-                            <option value="variable">Variable</option>
-                            <option value="parameter">Parameter</option>
-                            <option value="response">Response</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <select class="form-select form-select-sm condition-source-select">
-                            <option>iterationCount</option>
-                            <option>elapsedTime</option>
-                            <option>lastResponse</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <select class="form-select form-select-sm">
-                            <option>==</option>
-                            <option>!=</option>
-                            <option>&gt;</option>
-                            <option>&gt;=</option>
-                            <option>&lt;</option>
-                            <option>&lt;=</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <input type="text" class="form-control form-control-sm" placeholder="Value">
-                    </div>
-                    <div class="col-md-2">
-                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.condition-row').remove()">🗑️</button>
-                    </div>
-                </div>
-            `;
-            group.insertBefore(newRow, buttonContainer);
-        }
-        
-        function updateConditionSource(select) {
-            const row = select.closest('.condition-row');
-            const sourceSelect = row.querySelector('.condition-source-select');
-            
-            const options = {
-                'variable': ['iterationCount', 'elapsedTime', 'lastResponse', 'customVar'],
-                'parameter': ['DfuMode', 'ParcelSizeBytes', 'ValidationMethod', 'DirectionalityMode'],
-                'response': ['lastCommandResponse', 'statusCode', 'errorCode']
-            };
-            
-            const newOptions = options[select.value] || [];
-            sourceSelect.innerHTML = newOptions.map(opt => `<option>${opt}</option>`).join('');
-        }
-        
-        function editLoopConfiguration(operationId) {
-            // Would show a detailed loop configuration modal
-            showToast(`Edit loop configuration for operation ${operationId}`, 'info');
-        }
-    </script>
-}

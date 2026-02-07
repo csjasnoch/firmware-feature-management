@@ -1,0 +1,108 @@
+@page
+@model WebApp.Pages.Collections.CompareModel
+@{
+    ViewData["Title"] = "Compare Collections";
+}
+
+<div class="container-fluid mt-4">
+    <h2>Compare Feature Collections</h2>
+    
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label">Base Collection (Left)</label>
+                    <select asp-for="LeftId" asp-items="Model.CollectionOptions" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- Select Collection --</option>
+                    </select>
+                </div>
+                <div class="col-md-2 text-center">
+                    <span class="fs-4">↔️</span>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Target Collection (Right)</label>
+                    <select asp-for="RightId" asp-items="Model.CollectionOptions" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- Select Collection --</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @if (Model.LeftCollection != null && Model.RightCollection != null)
+    {
+        <div class="row mb-3">
+             <div class="col-md-6">
+                <div class="border p-2 bg-light">
+                    <strong>@Model.LeftCollection.Name</strong><br/>
+                    <small>@Model.LeftCollection.TargetProgram?.Name - @Model.LeftCollection.RequiredLpiVersion?.Version / @Model.LeftCollection.RequiredPiccoloVersion?.Version</small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="border p-2 bg-light">
+                    <strong>@Model.RightCollection.Name</strong><br/>
+                     <small>@Model.RightCollection.TargetProgram?.Name - @Model.RightCollection.RequiredLpiVersion?.Version / @Model.RightCollection.RequiredPiccoloVersion?.Version</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 20%">Feature</th>
+                        <th style="width: 10%">Status</th>
+                        <th style="width: 35%">Base Values</th>
+                        <th style="width: 35%">Target Values</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var diff in Model.Comparisons.OrderBy(c => c.FeatureName))
+                    {
+                        var rowClass = diff.Status switch {
+                            "Added" => "table-success",
+                            "Removed" => "table-danger",
+                            "Modified" => "table-warning",
+                            _ => ""
+                        };
+                        
+                        <tr class="@rowClass">
+                            <td>@diff.FeatureName</td>
+                            <td><strong>@diff.Status</strong></td>
+                            <td>
+                                @if (diff.LeftFeature != null)
+                                {
+                                    @foreach(var p in diff.LeftFeature.Parameters)
+                                    {
+                                        <div><small>@p.ParameterName:</small> @p.Value</div>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Not present</span>
+                                }
+                            </td>
+                             <td>
+                                @if (diff.RightFeature != null)
+                                {
+                                    @foreach(var p in diff.RightFeature.Parameters)
+                                    {
+                                        <div><small>@p.ParameterName:</small> @p.Value</div>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Not present</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">Select two collections to compare their features.</div>
+    }
+</div>
