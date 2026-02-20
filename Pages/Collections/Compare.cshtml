@@ -5,104 +5,380 @@
 }
 
 <div class="container-fluid mt-4">
-    <h2>Compare Feature Collections</h2>
-    
+    <div class="row mb-3">
+        <div class="col">
+            <h2><i class="bi bi-arrows-angle-expand"></i> Compare Feature Collections</h2>
+            <p class="text-muted">Compare features across multiple collections (including cross-program comparisons)</p>
+        </div>
+    </div>
+
+    <!-- Collection Selector -->
     <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Select Collections to Compare</h5>
+        </div>
         <div class="card-body">
-            <form method="get" class="row align-items-end">
-                <div class="col-md-5">
-                    <label class="form-label">Base Collection (Left)</label>
-                    <select asp-for="LeftId" asp-items="Model.CollectionOptions" class="form-select" onchange="this.form.submit()">
-                        <option value="">-- Select Collection --</option>
-                    </select>
+            <form method="get">
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label fw-bold">Select Collections (2-5 collections)</label>
+                        <div class="row">
+                            @for (int i = 0; i < 5; i++)
+                            {
+                                <div class="col-md-2">
+                                    <select name="CollectionIds" class="form-select collection-select" 
+                                            data-index="@i" onchange="updateCompare()">
+                                        <option value="">-- Select Collection @(i + 1) --</option>
+                                        @foreach (var option in Model.CollectionOptions)
+                                        {
+                                            var isSelected = Model.CollectionIds.Count > i && 
+                                                           Model.CollectionIds[i].ToString() == option.Value;
+                                            <option value="@option.Value" selected="@isSelected">@option.Text</option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-2 text-center">
-                    <span class="fs-4">↔️</span>
-                </div>
-                <div class="col-md-5">
-                    <label class="form-label">Target Collection (Right)</label>
-                    <select asp-for="RightId" asp-items="Model.CollectionOptions" class="form-select" onchange="this.form.submit()">
-                        <option value="">-- Select Collection --</option>
-                    </select>
-                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i> Compare Selected Collections
+                </button>
+                <small class="text-muted ms-3">
+                    <i class="bi bi-info-circle"></i> Cross-program comparison is supported (e.g., Edina vs Fridley)
+                </small>
             </form>
         </div>
     </div>
 
-    @if (Model.LeftCollection != null && Model.RightCollection != null)
+    @if (Model.SelectedCollections.Any())
     {
+        <!-- Collection Headers -->
         <div class="row mb-3">
-             <div class="col-md-6">
-                <div class="border p-2 bg-light">
-                    <strong>@Model.LeftCollection.Name</strong><br/>
-                    <small>@Model.LeftCollection.TargetProgram?.Name - @Model.LeftCollection.RequiredLpiVersion?.Version / @Model.LeftCollection.RequiredPiccoloVersion?.Version</small>
+            @foreach (var collection in Model.SelectedCollections)
+            {
+                <div class="col">
+                    <div class="card border-primary">
+                        <div class="card-body">
+                            <h6 class="card-title">@collection.Name</h6>
+                            <p class="card-text small mb-1">
+                                <span class="badge bg-secondary">@collection.TargetProgram?.Name</span>
+                                <span class="badge bg-info">@collection.TargetProgram?.HardwareGen</span>
+                            </p>
+                            <p class="card-text small mb-0">
+                                <strong>LPI:</strong> @collection.RequiredLpiVersion?.Version<br />
+                                <strong>PICCOLO:</strong> @collection.RequiredPiccoloVersion?.Version
+                            </p>
+                            <p class="card-text small text-muted mt-2">
+                                @collection.Features.Count features
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Common Features</h5>
+                        <h2 class="mb-0">@Model.CommonFeatures.Count</h2>
+                        <small>Features appearing in all selected collections</small>
+                    </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="border p-2 bg-light">
-                    <strong>@Model.RightCollection.Name</strong><br/>
-                     <small>@Model.RightCollection.TargetProgram?.Name - @Model.RightCollection.RequiredLpiVersion?.Version / @Model.RightCollection.RequiredPiccoloVersion?.Version</small>
+            <div class="col-md-4">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body">
+                        <h5 class="card-title">Unique Features</h5>
+                        <h2 class="mb-0">@Model.UniqueFeatures.Count</h2>
+                        <small>Features appearing in only one collection</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Features</h5>
+                        <h2 class="mb-0">@Model.SelectedCollections.Sum(c => c.Features.Count)</h2>
+                        <small>Combined across all collections</small>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="table-responsive">
-            <table class="table table-bordered">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width: 20%">Feature</th>
-                        <th style="width: 10%">Status</th>
-                        <th style="width: 35%">Base Values</th>
-                        <th style="width: 35%">Target Values</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var diff in Model.Comparisons.OrderBy(c => c.FeatureName))
-                    {
-                        var rowClass = diff.Status switch {
-                            "Added" => "table-success",
-                            "Removed" => "table-danger",
-                            "Modified" => "table-warning",
-                            _ => ""
-                        };
-                        
-                        <tr class="@rowClass">
-                            <td>@diff.FeatureName</td>
-                            <td><strong>@diff.Status</strong></td>
-                            <td>
-                                @if (diff.LeftFeature != null)
+        <!-- Feature Comparison Table -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Feature Comparison Matrix</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 5%">
+                                    <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">
+                                </th>
+                                <th style="width: 25%">Feature Name</th>
+                                @foreach (var collection in Model.SelectedCollections)
                                 {
-                                    @foreach(var p in diff.LeftFeature.Parameters)
+                                    <th class="text-center">@collection.Name</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var allFeatureNames = Model.SelectedCollections
+                                    .SelectMany(c => c.Features.Select(f => f.Name))
+                                    .Distinct()
+                                    .OrderBy(n => n)
+                                    .ToList();
+                            }
+                            @foreach (var featureName in allFeatureNames)
+                            {
+                                <tr>
+                                    <td>
+                                        @{
+                                            var firstFeature = Model.SelectedCollections
+                                                .SelectMany(c => c.Features)
+                                                .FirstOrDefault(f => f.Name == featureName);
+                                        }
+                                        @if (firstFeature != null)
+                                        {
+                                            <input type="checkbox" class="feature-checkbox" 
+                                                   value="@firstFeature.Id" 
+                                                   name="selectedFeatures">
+                                        }
+                                    </td>
+                                    <td>
+                                        <strong>@featureName</strong>
+                                        @{
+                                            var feature = Model.SelectedCollections
+                                                .SelectMany(c => c.Features)
+                                                .FirstOrDefault(f => f.Name == featureName);
+                                        }
+                                        @if (feature != null)
+                                        {
+                                            <br />
+                                            <small class="text-muted">@feature.Description</small>
+                                            <br />
+                                            <span class="badge bg-primary">@feature.Category</span>
+                                        }
+                                    </td>
+                                    @foreach (var collection in Model.SelectedCollections)
                                     {
-                                        <div><small>@p.ParameterName:</small> @p.Value</div>
+                                        var featureInCollection = collection.Features
+                                            .FirstOrDefault(f => f.Name == featureName);
+                                        
+                                        @if (featureInCollection != null)
+                                        {
+                                            <td class="table-success text-center">
+                                                <span class="badge bg-success">✓ Present</span>
+                                                <br />
+                                                <small class="text-muted">
+                                                    @featureInCollection.Parameters.Count params, 
+                                                    @featureInCollection.Commands.Count cmds
+                                                </small>
+                                                <br />
+                                                <a href="/Features/Edit?id=@featureInCollection.Id" 
+                                                   class="btn btn-sm btn-outline-info mt-1" 
+                                                   target="_blank">
+                                                    <i class="bi bi-eye"></i> View
+                                                </a>
+                                            </td>
+                                        }
+                                        else
+                                        {
+                                            <td class="table-light text-center text-muted">
+                                                <span class="badge bg-secondary">✗ Absent</span>
+                                            </td>
+                                        }
                                     }
-                                }
-                                else
-                                {
-                                    <span class="text-muted">Not present</span>
-                                }
-                            </td>
-                             <td>
-                                @if (diff.RightFeature != null)
-                                {
-                                    @foreach(var p in diff.RightFeature.Parameters)
-                                    {
-                                        <div><small>@p.ParameterName:</small> @p.Value</div>
-                                    }
-                                }
-                                else
-                                {
-                                    <span class="text-muted">Not present</span>
-                                }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Merge Actions -->
+        <div class="card mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="bi bi-layers"></i> Merge Selected Features</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="MergeFeatures">
+                    <p class="text-muted">
+                        Select features from the table above and choose a merge strategy to combine them into a new feature.
+                    </p>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Merge Strategy</label>
+                            <select name="MergeStrategy" class="form-select">
+                                <option value="Union">Union - Include all parameters from all features</option>
+                                <option value="Intersection">Intersection - Include only common parameters</option>
+                                <option value="FirstWins">First Wins - Use first feature as base</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Selected Features</label>
+                            <div id="selectedCount" class="form-control bg-light">
+                                <span id="selectedCountText">0 features selected</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <strong>Merge Strategy Details:</strong>
+                        <ul class="mb-0">
+                            <li><strong>Union:</strong> Combines all unique parameters from all selected features</li>
+                            <li><strong>Intersection:</strong> Only includes parameters that appear in ALL selected features</li>
+                            <li><strong>First Wins:</strong> Uses the first selected feature's parameters, appends commands from others</li>
+                        </ul>
+                    </div>
+
+                    <input type="hidden" name="SelectedFeatureIds" id="selectedFeatureIdsInput" value="">
+                    
+                    <button type="submit" class="btn btn-warning" id="mergeButton" disabled>
+                        <i class="bi bi-layers"></i> Merge Selected Features
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="clearSelection()">
+                        <i class="bi bi-x-circle"></i> Clear Selection
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Batch Pull Actions -->
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-download"></i> Batch Pull to Collection</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Pull selected features into a target collection. Features will be adapted if needed.
+                </p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Target Collection</label>
+                        <select class="form-select" id="targetCollection">
+                            <option value="">-- Select Target Collection --</option>
+                            @foreach (var collection in Model.AllCollections)
+                            {
+                                <option value="@collection.Id">@collection.Name (@collection.TargetProgram?.Name)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="adaptOnPull" checked>
+                            <label class="form-check-label" for="adaptOnPull">
+                                <strong>Auto-adapt to target firmware version</strong>
+                                <br />
+                                <small class="text-muted">Automatically map parameters/commands if incompatible</small>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="button" class="btn btn-success mt-3" onclick="batchPullFeatures()" id="batchPullButton" disabled>
+                    <i class="bi bi-download"></i> Pull Selected Features
+                </button>
+            </div>
         </div>
     }
     else
     {
-        <div class="alert alert-info">Select two collections to compare their features.</div>
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Select at least 2 collections to start comparing.
+        </div>
     }
 </div>
+
+@section Scripts {
+<script>
+    function updateCompare() {
+        // Auto-submit if at least 2 collections selected
+        const selects = document.querySelectorAll('.collection-select');
+        const selectedCount = Array.from(selects).filter(s => s.value !== '').length;
+        
+        if (selectedCount >= 2) {
+            // Auto-submit form after brief delay
+            setTimeout(() => {
+                document.querySelector('form').submit();
+            }, 300);
+        }
+    }
+
+    function toggleSelectAll(checkbox) {
+        const checkboxes = document.querySelectorAll('.feature-checkbox');
+        checkboxes.forEach(cb => cb.checked = checkbox.checked);
+        updateSelectedCount();
+    }
+
+    // Update selected count and enable/disable buttons
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('feature-checkbox') || e.target.id === 'selectAll') {
+            updateSelectedCount();
+        }
+    });
+
+    function updateSelectedCount() {
+        const checkboxes = document.querySelectorAll('.feature-checkbox:checked');
+        const count = checkboxes.length;
+        
+        document.getElementById('selectedCountText').textContent = `${count} feature${count !== 1 ? 's' : ''} selected`;
+        
+        // Update hidden input with selected IDs
+        const ids = Array.from(checkboxes).map(cb => cb.value);
+        document.getElementById('selectedFeatureIdsInput').value = ids.join(',');
+        
+        // Enable/disable buttons
+        document.getElementById('mergeButton').disabled = count < 2;
+        document.getElementById('batchPullButton').disabled = count === 0;
+    }
+
+    function clearSelection() {
+        document.querySelectorAll('.feature-checkbox').forEach(cb => cb.checked = false);
+        document.getElementById('selectAll').checked = false;
+        updateSelectedCount();
+    }
+
+    function batchPullFeatures() {
+        const targetCollectionId = document.getElementById('targetCollection').value;
+        const adaptOnPull = document.getElementById('adaptOnPull').checked;
+        const selectedIds = Array.from(document.querySelectorAll('.feature-checkbox:checked'))
+            .map(cb => cb.value);
+
+        if (!targetCollectionId) {
+            alert('Please select a target collection');
+            return;
+        }
+
+        if (selectedIds.length === 0) {
+            alert('Please select at least one feature to pull');
+            return;
+        }
+
+        // Build URL with parameters
+        const params = new URLSearchParams();
+        params.append('id', targetCollectionId);
+        params.append('adaptToVersion', adaptOnPull);
+        selectedIds.forEach(id => params.append('featureIds', id));
+
+        // Redirect to collection details with pull operation
+        window.location.href = `/Collections/Details?${params.toString()}`;
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        updateSelectedCount();
+    });
+</script>
+}

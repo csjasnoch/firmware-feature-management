@@ -5,407 +5,347 @@
 }
 
 <div class="mb-4">
-    <h1 class="display-5">Firmware Feature Management</h1>
-    <p class="text-muted">PICCOLO-based feature management across NPI programs and firmware versions</p>
-</div>
-
-<!-- Global Context Switcher -->
-<div class="card mb-4 border-primary">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0"><i class="bi bi-gear"></i> Global Firmware Context</h5>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-4">
-                <label class="form-label fw-bold">NPI Program</label>
-                <select class="form-select" id="npiProgramSelect">
-                    @foreach (var program in Model.NpiPrograms)
-                    {
-                        <option value="@program.Id" selected="@(program.Id == Model.SelectedNpiProgramId)">
-                            @program.Name (@program.HardwareGen) - @program.Status
-                        </option>
-                    }
-                </select>
-            </div>
-            <div class="col-md-4">
-                <label class="form-label fw-bold">LPI Version</label>
-                <select class="form-select" id="lpiVersionSelect">
-                    @foreach (var version in Model.LpiVersions)
-                    {
-                        <option value="@version.Id" data-npi="@version.NpiProgramId" selected="@(version.Id == Model.SelectedLpiVersionId)">
-                            @version.Version - @Model.GetStageDisplayName(version.Stage)
-                        </option>
-                    }
-                </select>
-            </div>
-            <div class="col-md-4">
-                <label class="form-label fw-bold">PICCOLO Version</label>
-                <select class="form-select" id="piccoloVersionSelect">
-                    @foreach (var version in Model.PiccoloVersions)
-                    {
-                        <option value="@version.Id" data-npi="@version.NpiProgramId" selected="@(version.Id == Model.SelectedPiccoloVersionId)">
-                            @version.Version - @Model.GetStageDisplayName(version.Stage)
-                        </option>
-                    }
-                </select>
-            </div>
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="display-5">Firmware Feature Management</h1>
+            <p class="text-muted">Multi-collection workspace for cross-program feature engineering</p>
         </div>
-        <div class="mt-3">
-            <button class="btn btn-primary" onclick="applyContext()">
-                <i class="bi bi-check-circle"></i> Apply Context
+        <div>
+            <span class="badge bg-secondary">@Model.CurrentContext.NpiProgramName</span>
+            <span class="badge bg-info">LPI @Model.CurrentContext.LpiVersionNumber</span>
+            <span class="badge bg-info">PICCOLO @Model.CurrentContext.PiccoloVersionNumber</span>
+            <button class="btn btn-sm btn-outline-primary ms-2" data-bs-toggle="modal" data-bs-target="#contextModal">
+                <i class="bi bi-gear"></i> Change Context
             </button>
-            <small class="text-muted ms-3">
-                <i class="bi bi-info-circle"></i> Context applies to all features and collections
-            </small>
         </div>
     </div>
 </div>
 
-<!-- Quick Stats -->
+<!-- Quick Stats Row -->
 <div class="row mb-4">
     <div class="col-md-3">
-        <div class="card border-start border-primary border-4">
+        <div class="card border-start border-primary border-4 h-100">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted text-uppercase mb-1">Features</h6>
-                        <h2 class="mb-0">@Model.TotalFeatures</h2>
-                    </div>
-                    <div class="text-primary" style="font-size: 2rem;">
-                        <i class="bi bi-lightning"></i>
-                    </div>
-                </div>
-                <small class="text-muted">PICCOLO-based features</small>
+                <h6 class="text-muted text-uppercase mb-1">Total Features</h6>
+                <h2 class="mb-0">@Model.TotalFeatures</h2>
+                <small class="text-muted">Across all collections</small>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card border-start border-success border-4">
+        <div class="card border-start border-success border-4 h-100">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted text-uppercase mb-1">Collections</h6>
-                        <h2 class="mb-0">@Model.TotalCollections</h2>
-                    </div>
-                    <div class="text-success" style="font-size: 2rem;">
-                        <i class="bi bi-collection"></i>
-                    </div>
-                </div>
-                <small class="text-muted">Version-aware collections</small>
+                <h6 class="text-muted text-uppercase mb-1">Total Collections</h6>
+                <h2 class="mb-0">@Model.TotalCollections</h2>
+                <small class="text-success">@Model.CompatibleCollectionsCount compatible with current context</small>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card border-start border-info border-4">
+        <div class="card border-start border-info border-4 h-100">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted text-uppercase mb-1">NPI Programs</h6>
-                        <h2 class="mb-0">@Model.TotalNpiPrograms</h2>
-                    </div>
-                    <div class="text-info" style="font-size: 2rem;">
-                        <i class="bi bi-diagram-3"></i>
-                    </div>
-                </div>
-                <small class="text-muted">Hardware generations</small>
+                <h6 class="text-muted text-uppercase mb-1">NPI Programs</h6>
+                <h2 class="mb-0">@Model.TotalNpiPrograms</h2>
+                <small class="text-muted">Edina, Eagan, Fridley, etc.</small>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card border-start border-warning border-4">
+        <div class="card border-start border-warning border-4 h-100">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted text-uppercase mb-1">Firmware Versions</h6>
-                        <h2 class="mb-0">@Model.TotalVersions</h2>
-                    </div>
-                    <div class="text-warning" style="font-size: 2rem;">
-                        <i class="bi bi-box-seam"></i>
-                    </div>
-                </div>
-                <small class="text-muted">LPI + PICCOLO versions</small>
+                <h6 class="text-muted text-uppercase mb-1">Reused Features</h6>
+                <h2 class="mb-0">@Model.FeatureReuseStats.Count</h2>
+                <small class="text-muted">Features in multiple collections</small>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Firmware Version Matrix -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-table"></i> Firmware Version Matrix</h5>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered">
-                <thead>
-                    <tr class="table-light">
-                        <th>NPI Program</th>
-                        <th>Hardware Gen</th>
-                        <th>LPI Versions</th>
-                        <th>PICCOLO Versions</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var program in Model.NpiPrograms)
-                    {
-                        var lpiVersions = Model.LpiVersions.Where(v => v.NpiProgramId == program.Id).ToList();
-                        var piccoloVersions = Model.PiccoloVersions.Where(v => v.NpiProgramId == program.Id).ToList();
-                        <tr>
-                            <td><strong>@program.Name</strong></td>
-                            <td><span class="badge bg-secondary">@program.HardwareGen</span></td>
-                            <td>
-                                @if (lpiVersions.Any())
+<!-- Active Collections Workspace -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-briefcase"></i> Active Collections Workspace</h5>
+                    <a href="/Collections/Create" class="btn btn-sm btn-light">
+                        <i class="bi bi-plus-circle"></i> New Collection
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (Model.ActiveCollections.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Collection</th>
+                                    <th>Program</th>
+                                    <th>Features</th>
+                                    <th>Compatibility</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var collection in Model.ActiveCollections)
                                 {
-                                    <div class="d-flex flex-wrap gap-1">
-                                        @foreach (var version in lpiVersions.OrderBy(v => v.Version))
-                                        {
-                                            <span class="badge @Model.GetStageBadgeClass(version.Stage)" title="@version.Version">
-                                                @version.Version
-                                            </span>
-                                        }
-                                    </div>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">None</span>
-                                }
-                            </td>
-                            <td>
-                                @if (piccoloVersions.Any())
-                                {
-                                    <div class="d-flex flex-wrap gap-1">
-                                        @foreach (var version in piccoloVersions.OrderBy(v => v.Version))
-                                        {
-                                            <span class="badge @Model.GetStageBadgeClass(version.Stage)" title="@version.Version">
-                                                @version.Version
-                                            </span>
-                                        }
-                                    </div>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">None</span>
-                                }
-                            </td>
-                            <td>
-                                @if (program.Status == ProgramStatus.Released)
-                                {
-                                    <span class="badge bg-success">Released</span>
-                                }
-                                else if (program.Status == ProgramStatus.Active)
-                                {
-                                    <span class="badge bg-primary">Active</span>
-                                }
-                                else if (program.Status == ProgramStatus.Deprecated)
-                                {
-                                    <span class="badge bg-warning text-dark">Deprecated</span>
-                                }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-        <div class="mt-3">
-            <small class="text-muted">
-                <span class="badge bg-secondary">T0 Test</span>
-                <span class="badge bg-warning text-dark">T1 Alpha</span>
-                <span class="badge bg-info">T2 Beta</span>
-                <span class="badge bg-success">T3 Released</span>
-            </small>
-        </div>
-    </div>
-</div>
+                                    var npiProgram = Model.NpiPrograms.FirstOrDefault(p => p.Id == collection.NpiProgramId);
+                                    var lpiVersion = Model.LpiVersions.FirstOrDefault(v => v.Id == collection.RequiredLpiVersionId);
+                                    var piccoloVersion = Model.PiccoloVersions.FirstOrDefault(v => v.Id == collection.RequiredPiccoloVersionId);
 
-<!-- Feature Compatibility Heatmap -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-grid-3x3-gap"></i> Feature Compatibility Heatmap</h5>
+                                    <tr>
+                                        <td>
+                                            <strong>@collection.Name</strong>
+                                            <br />
+                                            <small class="text-muted">@collection.Description</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">@npiProgram?.Name</span>
+                                            <br />
+                                            <small class="text-muted">
+                                                LPI @lpiVersion?.Version<br />
+                                                PICCOLO @piccoloVersion?.Version
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">@collection.Features.Count features</span>
+                                        </td>
+                                        <td>
+                                            @Html.Raw(Model.GetCompatibilityBadge(collection))
+                                        </td>
+                                        <td>
+                                            <a href="/Collections/Details?id=@collection.Id" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-eye"></i> Open
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                        <p class="mt-2">No active collections. <a href="/Collections/Create">Create one</a> to get started.</p>
+                    </div>
+                }
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-        <p class="text-muted mb-3">
-            Compatibility status for each feature across NPI programs. 
-            <span class="badge bg-success">✓</span> Compatible 
-            <span class="badge bg-warning text-dark">⚠️</span> Partial 
-            <span class="badge bg-info">🧪</span> Experimental 
-            <span class="badge bg-danger">❌</span> Incompatible
-        </p>
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered">
-                <thead>
-                    <tr class="table-light">
-                        <th style="width: 250px;">Feature</th>
-                        @foreach (var program in Model.NpiPrograms)
+
+    <!-- Recent Collections Panel -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Collections</h5>
+            </div>
+            <div class="card-body">
+                @if (Model.RecentCollections.Any())
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var collection in Model.RecentCollections)
                         {
-                            <th class="text-center">@program.Name<br/><small class="text-muted">@program.HardwareGen</small></th>
+                            var npiProgram = Model.NpiPrograms.FirstOrDefault(p => p.Id == collection.NpiProgramId);
+                            <a href="/Collections/Details?id=@collection.Id" class="list-group-item list-group-item-action">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <strong>@collection.Name</strong>
+                                        <br />
+                                        <small class="text-muted">
+                                            <span class="badge bg-secondary">@npiProgram?.Name</span>
+                                            @collection.Features.Count features
+                                        </small>
+                                    </div>
+                                    <small class="text-muted">@collection.ModifiedAt.ToString("MM/dd")</small>
+                                </div>
+                            </a>
                         }
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var feature in Model.Features.Take(10))
-                    {
-                        <tr>
-                            <td>
-                                <strong>@feature.Name</strong><br/>
-                                <small class="text-muted">@feature.Parameters.Count params</small>
-                            </td>
-                            @foreach (var program in Model.NpiPrograms)
-                            {
-                                var status = Model.FeatureCompatibilityMatrix.ContainsKey(feature.Id) && 
-                                           Model.FeatureCompatibilityMatrix[feature.Id].ContainsKey(program.Id) 
-                                           ? Model.FeatureCompatibilityMatrix[feature.Id][program.Id] 
-                                           : "unknown";
-                                
-                                <td class="text-center @(status == "compatible" ? "table-success" : 
-                                                         status == "partial" ? "table-warning" : 
-                                                         status == "experimental" ? "table-info" : 
-                                                         status == "incompatible" ? "table-danger" : "")">
-                                    @if (status == "compatible")
-                                    {
-                                        <span class="badge bg-success">✓</span>
-                                    }
-                                    else if (status == "partial")
-                                    {
-                                        <span class="badge bg-warning text-dark">⚠️</span>
-                                    }
-                                    else if (status == "experimental")
-                                    {
-                                        <span class="badge bg-info">🧪</span>
-                                    }
-                                    else if (status == "incompatible")
-                                    {
-                                        <span class="badge bg-danger">❌</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted">?</span>
-                                    }
-                                </td>
-                            }
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-        @if (Model.Features.Count > 10)
-        {
-            <div class="mt-2">
-                <small class="text-muted">Showing 10 of @Model.Features.Count features. <a href="/Features">View all features →</a></small>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted text-center">No recent collections</p>
+                }
+                <div class="mt-3 text-center">
+                    <a href="/Collections" class="btn btn-sm btn-outline-secondary">View All Collections</a>
+                </div>
             </div>
-        }
+        </div>
+    </div>
+</div>
+
+<!-- Cross-Collection Insights Row -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Feature Reuse Across Collections</h5>
+            </div>
+            <div class="card-body">
+                @if (Model.FeatureReuseStats.Any())
+                {
+                    <p class="text-muted mb-3">Features appearing in multiple collections (enables feature pulling)</p>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Feature Name</th>
+                                    <th>Collections Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var stat in Model.FeatureReuseStats)
+                                {
+                                    <tr>
+                                        <td>@stat.Key</td>
+                                        <td>
+                                            <span class="badge bg-success">@stat.Value collections</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted">No features are reused across multiple collections yet.</p>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Version Distribution</h5>
+            </div>
+            <div class="card-body">
+                @if (Model.VersionDistribution.Any())
+                {
+                    <p class="text-muted mb-3">Collection distribution across firmware versions</p>
+                    @foreach (var dist in Model.VersionDistribution)
+                    {
+                        var percentage = (dist.Value * 100.0 / Model.TotalCollections);
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small class="fw-bold">@dist.Key</small>
+                                <small class="text-muted">@dist.Value collections (@percentage.ToString("F0")%)</small>
+                            </div>
+                            <div class="progress" style="height: 20px;">
+                                <div class="progress-bar bg-info" role="progressbar" style="width: @percentage%" 
+                                     aria-valuenow="@percentage" aria-valuemin="0" aria-valuemax="100">
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-muted">No version distribution data available.</p>
+                }
+            </div>
+        </div>
     </div>
 </div>
 
 <!-- Quick Actions -->
-<div class="row">
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-collection"></i> Collections</h5>
-                <p class="card-text">
-                    Organize features into version-aware collections tied to specific NPI programs and firmware versions.
-                </p>
-                <a href="/Collections" class="btn btn-primary">Manage Collections</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-lightning"></i> Features</h5>
-                <p class="card-text">
-                    Create and manage PICCOLO features with LPI parameter groups and command sequences.
-                </p>
-                <a href="/Features" class="btn btn-primary">Manage Features</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-diagram-2"></i> Workflows</h5>
-                <p class="card-text">
-                    Design operational flows with PICCOLO commands, loops, and conditional logic.
-                </p>
-                <a href="/Workflow" class="btn btn-primary">Design Workflows</a>
-            </div>
-        </div>
-    </div>
-</div>
-
-@section Scripts {
-    <script>
-        function applyContext() {
-            const npiId = document.getElementById('npiProgramSelect').value;
-            const lpiId = document.getElementById('lpiVersionSelect').value;
-            const piccoloId = document.getElementById('piccoloVersionSelect').value;
-            
-            // Store in session storage for cross-page persistence
-            sessionStorage.setItem('selectedNpiProgramId', npiId);
-            sessionStorage.setItem('selectedLpiVersionId', lpiId);
-            sessionStorage.setItem('selectedPiccoloVersionId', piccoloId);
-            
-            // Show confirmation
-            alert('Firmware context applied! This context will be used across all pages.');
-        }
-        
-        // Filter version dropdowns when NPI program changes
-        document.getElementById('npiProgramSelect').addEventListener('change', function() {
-            const selectedNpi = this.value;
-            
-            // Filter LPI versions
-            const lpiSelect = document.getElementById('lpiVersionSelect');
-            Array.from(lpiSelect.options).forEach(option => {
-                if (option.dataset.npi === selectedNpi || !option.dataset.npi) {
-                    option.style.display = '';
-                } else {
-                    option.style.display = 'none';
-                }
-            });
-            
-            // Filter PICCOLO versions
-            const piccoloSelect = document.getElementById('piccoloVersionSelect');
-            Array.from(piccoloSelect.options).forEach(option => {
-                if (option.dataset.npi === selectedNpi || !option.dataset.npi) {
-                    option.style.display = '';
-                } else {
-                    option.style.display = 'none';
-                }
-            });
-            
-            // Select first visible option in each dropdown
-            lpiSelect.value = Array.from(lpiSelect.options).find(o => o.style.display !== 'none')?.value || '';
-            piccoloSelect.value = Array.from(piccoloSelect.options).find(o => o.style.display !== 'none')?.value || '';
-        });
-        
-        // Trigger initial filtering on page load
-        document.getElementById('npiProgramSelect').dispatchEvent(new Event('change'));
-    </script>
-}
-
-<div class="row mt-5">
+<div class="row mb-4">
     <div class="col-md-12">
         <div class="card">
-            <div class="card-header bg-primary text-white">
-                <strong>Current Device Context</strong>
-            </div>
             <div class="card-body">
-                <div class="row">
+                <h5 class="mb-4">
+                    <i class="bi bi-lightning-charge-fill text-primary"></i>
+                    Quick Actions
+                    <small class="text-muted fs-6">Common daily tasks</small>
+                </h5>
+                <div class="row g-3">
+                    <!-- 1. Pull Feature from Collection -->
                     <div class="col-md-4">
-                        <h6>NPI Program</h6>
-                        <p><strong>Eagan</strong> (v3.x - Current Production)</p>
-                        <small class="text-muted">Gen3 platform with enhanced audio</small>
+                        <a href="/Collections/PullFeature" 
+                           class="btn btn-outline-primary w-100 p-3"
+                           data-chat-prompt="Help me find and pull features from other collections"
+                           data-chat-context="PullFeature">
+                            <i class="bi bi-arrow-left-right fs-3"></i>
+                            <div class="mt-2">
+                                <strong>Pull Feature</strong>
+                                <small class="d-block text-muted">From another collection</small>
+                            </div>
+                        </a>
                     </div>
+
+                    <!-- 2. Adapt Feature for Compatibility -->
                     <div class="col-md-4">
-                        <h6>LPI Version</h6>
-                        <p><strong>3.2.1</strong> <span class="badge bg-success">T3 - Released</span> 📌</p>
-                        <small class="text-muted">26 parameters available</small>
+                        <a href="/Features/Compatibility" 
+                           class="btn btn-outline-success w-100 p-3"
+                           data-chat-prompt="Help me adapt a feature for compatibility with a different firmware version"
+                           data-chat-context="FeatureCompatibility">
+                            <i class="bi bi-wrench-adjustable fs-3"></i>
+                            <div class="mt-2">
+                                <strong>Adapt Feature</strong>
+                                <small class="d-block text-muted">For compatibility</small>
+                            </div>
+                        </a>
                     </div>
+
+                    <!-- 3. Quick Debug: Byte Packets -->
                     <div class="col-md-4">
-                        <h6>PICCOLO Version</h6>
-                        <p><strong>2.5.0</strong> <span class="badge bg-success">T3 - Released</span> 📌</p>
-                        <small class="text-muted">18 commands available</small>
+                        <a href="/Features/BytePacket" 
+                           class="btn btn-outline-danger w-100 p-3"
+                           data-chat-prompt="Help me analyze byte packet differences"
+                           data-chat-context="FeatureBytePacket">
+                            <i class="bi bi-bug-fill fs-3"></i>
+                            <div class="mt-2">
+                                <strong>Debug Packets</strong>
+                                <small class="d-block text-muted">Byte-level inspection</small>
+                            </div>
+                        </a>
+                    </div>
+
+                    <!-- 4. Create New Collection -->
+                    <div class="col-md-4">
+                        <a href="/Collections/Create" 
+                           class="btn btn-outline-info w-100 p-3"
+                           data-chat-prompt="Help me create a new collection for my project"
+                           data-chat-context="CollectionCreate">
+                            <i class="bi bi-plus-circle-fill fs-3"></i>
+                            <div class="mt-2">
+                                <strong>New Collection</strong>
+                                <small class="d-block text-muted">Start a project</small>
+                            </div>
+                        </a>
+                    </div>
+
+                    <!-- 5. Compare Collections -->
+                    <div class="col-md-4">
+                        <a href="/Collections/Compare" 
+                           class="btn btn-outline-warning w-100 p-3"
+                           data-chat-prompt="Help me compare features across multiple collections"
+                           data-chat-context="CollectionCompare">
+                            <i class="bi bi-diagram-3-fill fs-3"></i>
+                            <div class="mt-2">
+                                <strong>Compare</strong>
+                                <small class="d-block text-muted">Multi-collection analysis</small>
+                            </div>
+                        </a>
+                    </div>
+
+                    <!-- 6. Today's Work Summary -->
+                    <div class="col-md-4">
+                        <button type="button" 
+                                class="btn btn-outline-secondary w-100 p-3"
+                                id="todayWorkBtn"
+                                data-chat-prompt="Show me what I was working on recently and help me continue"
+                                data-chat-context="Dashboard">
+                            <i class="bi bi-clipboard-check-fill fs-3"></i>
+                            <div class="mt-2">
+                                <strong>Today's Work</strong>
+                                <small class="d-block text-muted">Recent activity</small>
+                            </div>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -413,17 +353,143 @@
     </div>
 </div>
 
-<div class="row mt-4">
-    <div class="col-md-12">
-        <div class="alert alert-info">
-            <h5>📋 Quick Start Guide</h5>
-            <ol>
-                <li><strong>Select your NPI Program</strong> - Choose from Eagan, Elko, Edina, Fridley, or Chaska</li>
-                <li><strong>Choose Firmware Versions</strong> - Pick LPI and PICCOLO versions based on release stage</li>
-                <li><strong>Create Features</strong> - Define features with parameters and commands</li>
-                <li><strong>Organize into Collections</strong> - Group features by firmware version compatibility</li>
-                <li><strong>Test & Deploy</strong> - Validate compatibility and deploy to devices</li>
-            </ol>
+<!-- Context Switcher Modal -->
+<div class="modal fade" id="contextModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Change Firmware Context</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Changing context filters collections and features throughout the application.
+                    </div>
+
+                    @if (Model.ContextHistory.Any())
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Recent Contexts</label>
+                            <div class="list-group">
+                                @foreach (var context in Model.ContextHistory.Take(3))
+                                {
+                                    <button type="button" class="list-group-item list-group-item-action" 
+                                            onclick="selectContext('@context.NpiProgramId', '@context.LpiVersionId', '@context.PiccoloVersionId')">
+                                        <strong>@context.NpiProgramName</strong> - 
+                                        LPI @context.LpiVersionNumber + PICCOLO @context.PiccoloVersionNumber
+                                        <small class="text-muted ms-2">(@context.LastModified.ToString("MM/dd HH:mm"))</small>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <hr />
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">NPI Program</label>
+                            <select class="form-select" id="modalNpiProgram" name="npiProgramId" required>
+                                @foreach (var program in Model.NpiPrograms)
+                                {
+                                    <option value="@program.Id" selected="@(program.Id == Model.CurrentContext.NpiProgramId)">
+                                        @program.Name (@program.HardwareGen)
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">LPI Version</label>
+                            <select class="form-select" id="modalLpiVersion" name="lpiVersionId" required>
+                                @foreach (var version in Model.LpiVersions)
+                                {
+                                    <option value="@version.Id" data-npi="@version.NpiProgramId" 
+                                            selected="@(version.Id == Model.CurrentContext.LpiVersionId)">
+                                        @version.Version - @Model.GetStageDisplayName(version.Stage)
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">PICCOLO Version</label>
+                            <select class="form-select" id="modalPiccoloVersion" name="piccoloVersionId" required>
+                                @foreach (var version in Model.PiccoloVersions)
+                                {
+                                    <option value="@version.Id" data-npi="@version.NpiProgramId" 
+                                            selected="@(version.Id == Model.CurrentContext.PiccoloVersionId)">
+                                        @version.Version - @Model.GetStageDisplayName(version.Stage)
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Apply Context</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+
+@* AI Chat Panel *@
+@await Html.PartialAsync("_ChatPanel", Model.DashboardChatContext)
+
+@section Scripts {
+<script>
+    // Filter versions by selected NPI program
+    document.getElementById('modalNpiProgram')?.addEventListener('change', function() {
+        const selectedNpiId = this.value;
+        filterVersionSelect('modalLpiVersion', selectedNpiId);
+        filterVersionSelect('modalPiccoloVersion', selectedNpiId);
+    });
+
+    function filterVersionSelect(selectId, npiId) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        Array.from(select.options).forEach(option => {
+            const optionNpiId = option.getAttribute('data-npi');
+            if (optionNpiId === npiId || optionNpiId === null) {
+                option.style.display = '';
+                if (!select.value && optionNpiId === npiId) {
+                    select.value = option.value;
+                }
+            } else {
+                option.style.display = 'none';
+            }
+        });
+    }
+
+    function selectContext(npiId, lpiId, piccoloId) {
+        document.getElementById('modalNpiProgram').value = npiId;
+        filterVersionSelect('modalLpiVersion', npiId);
+        filterVersionSelect('modalPiccoloVersion', npiId);
+        document.getElementById('modalLpiVersion').value = lpiId;
+        document.getElementById('modalPiccoloVersion').value = piccoloId;
+    }
+
+    // Initialize version filters on modal show
+    document.getElementById('contextModal')?.addEventListener('show.bs.modal', function() {
+        const selectedNpiId = document.getElementById('modalNpiProgram').value;
+        filterVersionSelect('modalLpiVersion', selectedNpiId);
+        filterVersionSelect('modalPiccoloVersion', selectedNpiId);
+    });
+
+    // Handle "Today's Work" quick action - show chat with context
+    document.getElementById('todayWorkBtn')?.addEventListener('click', function() {
+        if (window.chatApp) {
+            // Open chat panel if collapsed
+            if (document.getElementById('chatPanel')?.classList.contains('collapsed')) {
+                window.chatApp.togglePanel();
+            }
+            
+            // Use the suggested prompt
+            const prompt = this.getAttribute('data-chat-prompt');
+            window.chatApp.useSuggestedPrompt(prompt);
+        }
+    });
+</script>
+}

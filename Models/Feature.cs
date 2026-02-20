@@ -23,6 +23,12 @@ public class ParameterValue
     public string ParameterName { get; set; } = string.Empty;
     public int Value { get; set; }
     public string Notes { get; set; } = string.Empty;
+    
+    // Additional properties for cross-collection operations
+    public string Context { get; set; } = string.Empty;
+    public int SettingNumber { get; set; }
+    public decimal? ValueDecimal { get; set; }
+    public string ValueHex { get; set; } = string.Empty;
 }
 
 public class PiccoloCommand
@@ -33,4 +39,9 @@ public class PiccoloCommand
     public List<byte> Payload { get; set; } = new();
     public int ExecutionOrder { get; set; }
     public string Notes { get; set; } = string.Empty;
+    
+    // Additional properties for cross-collection operations
+    public int CommandId { get; set; }
+    public int Sequence { get; set; }
+    public string ServiceName { get; set; } = string.Empty;
 }

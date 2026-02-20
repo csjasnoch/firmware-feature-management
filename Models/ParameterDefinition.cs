@@ -11,4 +11,10 @@ public class ParameterDefinition
     public string Description { get; set; } = string.Empty;
     public bool IsDeprecated { get; set; }
     public string DeprecationMessage { get; set; } = string.Empty;
+    
+    // Additional properties for cross-collection operations
+    public string Context { get; set; } = string.Empty;
+    public int SettingNumber { get; set; }
+    public decimal? ValueDecimal { get; set; }
+    public string ValueHex { get; set; } = string.Empty;
 }

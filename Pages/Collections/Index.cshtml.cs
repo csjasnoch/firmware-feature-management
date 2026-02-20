@@ -8,13 +8,17 @@ namespace WebApp.Pages.Collections;
 public class IndexModel : PageModel
 {
     private readonly FirmwareDataService _dataService;
+    private readonly ContextService _contextService;
 
-    public IndexModel(FirmwareDataService dataService)
+    public IndexModel(FirmwareDataService dataService, ContextService contextService)
     {
         _dataService = dataService;
+        _contextService = contextService;
     }
 
     public List<FeatureCollection> Collections { get; set; } = new();
+    public List<FeatureCollection> AllCollections { get; set; } = new();
+    public FirmwareContext CurrentContext { get; set; } = null!;
     public NpiProgram? CurrentProgram { get; set; }
     public FirmwareVersion? CurrentLpiVersion { get; set; }
     public FirmwareVersion? CurrentPiccoloVersion { get; set; }
@@ -24,22 +28,18 @@ public class IndexModel : PageModel
     public List<FirmwareVersion> AvailableLpiVersions { get; set; } = new();
     public List<FirmwareVersion> AvailablePiccoloVersions { get; set; } = new();
 
+    // Multi-collection workspace
+    [BindProperty(SupportsGet = true)]
+    public List<Guid> SelectedCollectionIds { get; set; } = new();
+    public List<FeatureCollection> SelectedCollections { get; set; } = new();
+
+    // Chat context for AI assistance
+    public ChatContext CollectionsChatContext { get; set; } = new();
+
     // Compatibility checking
     public string GetCompatibilityStatus(FeatureCollection collection)
     {
-        if (CurrentLpiVersion == null || CurrentPiccoloVersion == null) return "unknown";
-
-        bool lpiMatch = collection.RequiredLpiVersionId == CurrentLpiVersion.Id;
-        bool piccoloMatch = collection.RequiredPiccoloVersionId == CurrentPiccoloVersion.Id;
-
-        // Check if versions are test builds
-        bool hasTestVersions = collection.RequiredLpiVersion?.Stage == FirmwareReleaseStage.T0_Test ||
-                                collection.RequiredPiccoloVersion?.Stage == FirmwareReleaseStage.T0_Test;
-
-        if (lpiMatch && piccoloMatch) return "compatible";
-        if (hasTestVersions) return "test";
-        if (lpiMatch || piccoloMatch) return "partial";
-        return "incompatible";
+        return _contextService.GetCollectionCompatibilityStatus(collection, CurrentContext);
     }
 
     public string GetCompatibilityBadge(string status)
@@ -68,43 +68,54 @@ public class IndexModel : PageModel
 
     public void OnGet(Guid? programId, Guid? lpiId, Guid? piccoloId)
     {
-        Collections = _dataService.GetCollections();
+        AllCollections = _dataService.GetCollections();
+        
+        // Get or create current context
+        CurrentContext = _contextService.GetOrCreateDefaultContext();
         
         // Load context options
         AvailablePrograms = _dataService.GetNpiPrograms();
-
-        // Determine Program
-        if (programId.HasValue)
-            CurrentProgram = AvailablePrograms.FirstOrDefault(p => p.Id == programId.Value);
-        else
-            CurrentProgram = AvailablePrograms.FirstOrDefault(p => p.Name == "Eagan");
-
+        
+        // Get current program/versions from context
+        CurrentProgram = AvailablePrograms.FirstOrDefault(p => p.Id == CurrentContext.NpiProgramId);
+        
         if (CurrentProgram != null)
         {
             AvailableLpiVersions = _dataService.GetLpiVersions(CurrentProgram.Id);
             AvailablePiccoloVersions = _dataService.GetPiccoloVersions(CurrentProgram.Id);
-
-            // Determine LPI Version
-            if (lpiId.HasValue)
-                CurrentLpiVersion = AvailableLpiVersions.FirstOrDefault(v => v.Id == lpiId.Value);
             
-            if (CurrentLpiVersion == null)
-            {
-                // Default logic
-                 CurrentLpiVersion = AvailableLpiVersions.FirstOrDefault(v => v.Version == "3.2.1") 
-                                     ?? AvailableLpiVersions.FirstOrDefault();
-            }
-
-            // Determine Piccolo Version
-             if (piccoloId.HasValue)
-                CurrentPiccoloVersion = AvailablePiccoloVersions.FirstOrDefault(v => v.Id == piccoloId.Value);
-
-             if (CurrentPiccoloVersion == null)
-             {
-                 CurrentPiccoloVersion = AvailablePiccoloVersions.FirstOrDefault(v => v.Version == "2.5.0")
-                                         ?? AvailablePiccoloVersions.FirstOrDefault();
-             }
+            CurrentLpiVersion = AvailableLpiVersions.FirstOrDefault(v => v.Id == CurrentContext.LpiVersionId);
+            CurrentPiccoloVersion = AvailablePiccoloVersions.FirstOrDefault(v => v.Id == CurrentContext.PiccoloVersionId);
         }
+
+        // Filter collections by compatibility (show all by default, can be filtered by UI)
+        Collections = AllCollections
+            .OrderByDescending(c => _contextService.IsCollectionCompatible(c, CurrentContext))
+            .ThenBy(c => c.Name)
+            .ToList();
+
+        // Load selected collections for multi-collection workspace
+        if (SelectedCollectionIds.Any())
+        {
+            SelectedCollections = AllCollections
+                .Where(c => SelectedCollectionIds.Contains(c.Id))
+                .ToList();
+        }
+
+        // Setup chat context
+        CollectionsChatContext = new ChatContext
+        {
+            PageContext = ChatPageContext.CollectionsList,
+            CurrentFirmwareVersion = CurrentLpiVersion?.Version ?? CurrentContext.LpiVersionNumber,
+            AvailableCollections = Collections.Select(c => c.Name).ToList(),
+            CurrentNpiProgram = CurrentProgram?.Name,
+            SessionId = HttpContext.Session.Id,
+            AdditionalData = new Dictionary<string, object>
+            {
+                ["TotalCollections"] = Collections.Count,
+                ["CompatibleCount"] = Collections.Count(c => _contextService.IsCollectionCompatible(c, CurrentContext))
+            }
+        };
     }
 
     public JsonResult OnGetVersions(Guid programId)

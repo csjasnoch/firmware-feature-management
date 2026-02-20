@@ -29,6 +29,9 @@
                 {
                     <a href="/Collections/Edit?id=@Model.Collection.Id" class="btn btn-primary">Edit Collection</a>
                 }
+                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#featureBrowserModal">
+                    <i class="bi bi-plus-circle"></i> Pull Feature from Other Collections
+                </button>
                 <a href="/Collections" class="btn btn-outline-secondary">Back to List</a>
             </div>
         </div>
@@ -210,3 +213,227 @@
         </div>
     }
 </div>
+
+<!-- Cross-Collection Feature Browser Modal -->
+<div class="modal fade" id="featureBrowserModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="bi bi-search"></i> Browse Features from All Collections</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Pull features from any collection, regardless of compatibility. 
+                    Incompatible features will show warnings and offer adaptation options.
+                </div>
+
+                <!-- Search and Filter -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" id="featureSearchInput" placeholder="Search features by name...">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="collectionFilter">
+                            <option value="">All Collections</option>
+                            @foreach (var collection in Model.AllCollections.Where(c => c.Id != Model.Collection!.Id))
+                            {
+                                <option value="@collection.Id">@collection.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="categoryFilter">
+                            <option value="">All Categories</option>
+                            <option value="Audio Processing">Audio Processing</option>
+                            <option value="Connectivity">Connectivity</option>
+                            <option value="Firmware Management">Firmware Management</option>
+                            <option value="Health & Wellness">Health & Wellness</option>
+                            <option value="User Interface">User Interface</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Feature List -->
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-hover">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Feature</th>
+                                <th>Source Collection</th>
+                                <th>Category</th>
+                                <th>Compatibility</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="featureTableBody">
+                            @foreach (var feature in Model.AllAvailableFeatures)
+                            {
+                                var sourceCollection = Model.AllCollections.FirstOrDefault(c => c.Features.Any(f => f.Id == feature.Id));
+                                if (sourceCollection == null || sourceCollection.Id == Model.Collection!.Id) continue;
+
+                                var isCompatible = sourceCollection.RequiredLpiVersionId == Model.Collection.RequiredLpiVersionId &&
+                                                   sourceCollection.RequiredPiccoloVersionId == Model.Collection.RequiredPiccoloVersionId;
+
+                                <tr class="feature-row" data-collection-id="@sourceCollection.Id" data-category="@feature.Category" data-feature-name="@feature.Name.ToLower()">
+                                    <td>
+                                        <strong>@feature.Name</strong>
+                                        <br />
+                                        <small class="text-muted">@feature.Description</small>
+                                        <br />
+                                        <span class="badge bg-info">@feature.Parameters.Count params</span>
+                                        <span class="badge bg-secondary">@feature.Commands.Count commands</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">@sourceCollection.Name</span>
+                                        <br />
+                                        <small class="text-muted">
+                                            @sourceCollection.TargetProgram?.Name
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">@feature.Category</span>
+                                    </td>
+                                    <td>
+                                        @if (isCompatible)
+                                        {
+                                            <span class="badge bg-success"><i class="bi bi-check-circle"></i> Compatible</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> Incompatible</span>
+                                            <br />
+                                            <small class="text-muted">Will require adaptation</small>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (isCompatible)
+                                        {
+                                            <form method="post" asp-page-handler="PullFeature" class="d-inline">
+                                                <input type="hidden" name="id" value="@Model.Collection!.Id" />
+                                                <input type="hidden" name="sourceFeatureId" value="@feature.Id" />
+                                                <input type="hidden" name="adaptToVersion" value="false" />
+                                                <button type="submit" class="btn btn-sm btn-success">
+                                                    <i class="bi bi-arrow-down-circle"></i> Pull
+                                                </button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="btn btn-sm btn-warning" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#adaptModal"
+                                                    data-feature-id="@feature.Id"
+                                                    data-feature-name="@feature.Name">
+                                                <i class="bi bi-arrow-down-circle"></i> Pull & Adapt
+                                            </button>
+                                        }
+                                        <a href="/Features/Edit?id=@feature.Id" class="btn btn-sm btn-outline-info" target="_blank">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Adaptation Wizard Modal -->
+<div class="modal fade" id="adaptModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-tools"></i> Adapt Feature for Compatibility</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" asp-page-handler="PullFeature">
+                <div class="modal-body">
+                    <input type="hidden" name="id" value="@Model.Collection?.Id" />
+                    <input type="hidden" id="adaptFeatureId" name="sourceFeatureId" value="" />
+                    <input type="hidden" name="adaptToVersion" value="true" />
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        This feature is not compatible with the current collection's firmware versions.
+                        Adaptation will attempt to map parameters and commands to compatible equivalents.
+                    </div>
+
+                    <h6>Feature: <strong id="adaptFeatureName"></strong></h6>
+                    <p class="text-muted">
+                        Source firmware: <strong id="adaptSourceVersions"></strong><br />
+                        Target firmware: <strong>LPI @Model.Collection?.RequiredLpiVersion?.Version + PICCOLO @Model.Collection?.RequiredPiccoloVersion?.Version</strong>
+                    </p>
+
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="autoAdaptCheck" checked>
+                        <label class="form-check-label" for="autoAdaptCheck">
+                            <strong>Automatically adapt parameters and commands</strong>
+                            <br />
+                            <small class="text-muted">System will map parameter IDs and command IDs to equivalent versions where possible</small>
+                        </label>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <strong>What happens during adaptation:</strong>
+                        <ul>
+                            <li>Parameter IDs are mapped to target firmware version equivalents</li>
+                            <li>Command IDs are substituted with compatible commands</li>
+                            <li>Incompatible parameters/commands are flagged for manual review</li>
+                            <li>Feature is copied (original remains unchanged)</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Pull & Adapt Feature</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Feature search and filter
+    document.getElementById('featureSearchInput')?.addEventListener('input', filterFeatures);
+    document.getElementById('collectionFilter')?.addEventListener('change', filterFeatures);
+    document.getElementById('categoryFilter')?.addEventListener('change', filterFeatures);
+
+    function filterFeatures() {
+        const searchTerm = document.getElementById('featureSearchInput')?.value.toLowerCase() || '';
+        const collectionId = document.getElementById('collectionFilter')?.value || '';
+        const category = document.getElementById('categoryFilter')?.value || '';
+
+        const rows = document.querySelectorAll('.feature-row');
+        rows.forEach(row => {
+            const featureName = row.getAttribute('data-feature-name') || '';
+            const rowCollectionId = row.getAttribute('data-collection-id') || '';
+            const rowCategory = row.getAttribute('data-category') || '';
+
+            const matchesSearch = featureName.includes(searchTerm);
+            const matchesCollection = !collectionId || rowCollectionId === collectionId;
+            const matchesCategory = !category || rowCategory === category;
+
+            row.style.display = (matchesSearch && matchesCollection && matchesCategory) ? '' : 'none';
+        });
+    }
+
+    // Adapt modal - populate feature details
+    const adaptModal = document.getElementById('adaptModal');
+    adaptModal?.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const featureId = button.getAttribute('data-feature-id');
+        const featureName = button.getAttribute('data-feature-name');
+
+        document.getElementById('adaptFeatureId').value = featureId;
+        document.getElementById('adaptFeatureName').textContent = featureName;
+    });
+</script>
+}

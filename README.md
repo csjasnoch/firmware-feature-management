@@ -8,7 +8,10 @@ This POC focuses on **UI/UX for firmware feature management**, not data parsing 
 
 ## Key Capabilities
 - ✅ **Firmware Version Management** - Dashboard with version matrices, global context switcher, and compatibility heatmaps
+- ✅ **AI Chat Assistant** - Context-aware AI assistance on every page with suggested prompts and help
 - ✅ **Feature Management** - 20 comprehensive features with realistic LPI parameter groups and PICCOLO commands
+- ✅ **Cross-Collection Feature Pulling** - Pull features from one collection to another with compatibility analysis
+- ✅ **Feature Compatibility Analyzer** - Analyze and adapt features for different firmware versions
 - ✅ **Feature Editor** - Settings tabs (1-4) with grouped parameters, dual hex/decimal inputs, and validation
 - ✅ **Byte Packet Viewer** - PICCOLO packet visualization with parameter-to-byte correlation tree and export options
 - ✅ **Workflow Designer** - Visual workflow canvas with collapsible operations, loops, conditionals, and decision points
@@ -94,6 +97,47 @@ specs/                     - UI mockups and use cases
 
 ### Prerequisites
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- (Optional) [OpenAI API key](https://platform.openai.com/api-keys) for AI chat features
+
+### Quick Start (Recommended)
+**Double-click `Launch.bat`** in the project root - this automatically handles:
+- Dependency checks (.NET SDK)
+- Process cleanup (ports 5000/5001)
+- Build and database setup
+- Browser launch
+
+### Manual Launch
+If you prefer command-line control:
+
+```sh
+# Full rebuild with clean database
+.\Launch\Relaunch.ps1 -OpenBrowser
+
+# Quick restart (no rebuild) - fast for development
+.\Launch\QuickLaunch.ps1 -OpenBrowser
+
+# Reset database only
+.\Launch\ResetDatabase.ps1
+```
+
+For detailed launch options, see [Launch/README.md](Launch/README.md)
+
+### AI Chat Configuration (Optional)
+To enable AI chat assistance:
+
+1. Get an OpenAI API key from https://platform.openai.com/api-keys
+2. Open `appsettings.Development.json`
+3. Add your API key:
+   ```json
+   "ChatService": {
+     "ApiKey": "sk-your-api-key-here",
+     "Endpoint": "https://api.openai.com/v1/chat/completions",
+     "Model": "gpt-4",
+     "MaxTokens": "1500"
+   }
+   ```
+
+**Note:** The app works fully without an API key - chat features will show a "not configured" message.
 
 ### Running the Application
 ```sh
@@ -104,12 +148,69 @@ cd firmware-feature-management
 # Checkout the concept branch
 git checkout concept
 
-# Build and run
+# Quick launch (recommended)
+.\Launch.bat
+
+# OR manual launch
 dotnet build
 dotnet run
 ```
 
-The application will be available at `http://localhost:5127`
+The application will be available at:
+- **HTTP**: http://localhost:5000
+- **HTTPS**: https://localhost:5001
+
+### New Quick Actions (Dashboard)
+The redesigned dashboard includes 6 context-aware quick actions:
+
+**February 2026 Release:**
+- ✅ **AI Chat Integration**: Context-aware AI assistance on all pages with OpenAI/Azure OpenAI support
+- ✅ **Cross-Collection Feature Pulling**: `/Collections/PullFeature` page for importing features between collections
+- ✅ **Feature Compatibility Analyzer**: `/Features/Compatibility` page with automatic adaptation suggestions
+- ✅ **Enhanced Launch Scripts**: One-click `Launch.bat` with auto-browser and dependency checks
+- ✅ **Redesigned Quick Actions**: 6 domain-specific actions replacing generic navigation
+Controllers/
+  ChatController.cs               - API endpoints for AI chat service
+Launch/
+  Relaunch.ps1                   - Full rebuild script with clean/restore/build
+  QuickLaunch.ps1                - Fast restart without rebuild
+  ResetDatabase.ps1              - Database reset utility
+  README.md                      - Launch scripts documentation
+Launch.bat                       - One-click launcher (recommended entry point)
+Models/
+  ChatContext.cs, ChatMessage.cs  - AI chat models
+  CompatibilityAnalysis.cs       - Feature compatibility analysis
+  RecentActivity.cs              - User activity tracking
+  Feature.cs, FeatureCollection.cs, FirmwareVersion.cs, NpiProgram.cs
+  OperationalFlow.cs, FlowOperation.cs, FlowStep.cs, FlowBranch.cs
+  ParameterDefinition.cs, CommandDefinition.cs
+Pages/
+  Index.cshtml                   - ✅ Dashboard with Quick Actions and AI chat
+  Collections/                   - ✅ Collection management
+    Index.cshtml, Details.cshtml, Create.cshtml, Compare.cshtml
+    PullFeature.cshtml           - ✅ NEW: Cross-collection feature pulling
+  Features/                      - ✅ Feature management with AI assistance
+    Index.cshtml, Edit.cshtml, BytePacket.cshtml
+    Compatibility.cshtml         - ✅ NEW: Feature adaptation analyzer
+  Workflow/                      - ✅ Workflow designer
+    Designer.cshtml, Visualize.cshtml
+  Shared/
+    _ChatPanel.cshtml            - ✅ NEW: Reusable AI chat component
+Services/
+  FirmwareDataService.cs         - Main service with data access methods
+  FirmwareDataService.Enhanced.cs - 20 realistic features with PICCOLO/LPI mappings
+  FirmwareDataService.Extended.cs - ✅ NEW: Compatibility & cross-collection methods
+  ChatService.cs                 - ✅ NEW: AI chat integration (OpenAI/Azure)
+  ContextService.cs              - Firmware context management
+wwwroot/
+  css/chat.css                   - ✅ NEW: Chat UI styling
+  js/chat.js                     - ✅ NEW: Chat client logic
+Example Firmware Data/
+  12.000.000.002/               - Gen4 firmware (Lamarr/Mozart PICCOLO)
+  PiccoloInterface.xml          - LPI parameter definitions (34,464 lines)
+  PiccoloProtocol.xml           - PICCOLO command protocol (64,980 lines)
+specs/                          - UI mockups and use casess 3-6 collections)
+6. **Today's Work** - Resume recent activity with context restoration
 
 ### Database
 The application uses SQLite with Entity Framework Core. On first run, the database (`firmwarefeatures.db`) will be automatically created and seeded with:

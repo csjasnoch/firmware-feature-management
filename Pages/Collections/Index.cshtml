@@ -242,6 +242,9 @@
     </div>
 </div>
 
+@* AI Chat Panel *@
+@await Html.PartialAsync("_ChatPanel", Model.CollectionsChatContext)
+
 @section Scripts {
     <script>
         $(document).ready(function() {

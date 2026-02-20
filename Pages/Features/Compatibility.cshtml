@@ -1,0 +1,301 @@
+@page
+@model WebApp.Pages.Features.CompatibilityModel
+@{
+    ViewData["Title"] = "Feature Compatibility Analyzer";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="bi bi-wrench-adjustable text-success"></i>
+                Feature Compatibility Analyzer
+            </h1>
+            <p class="text-muted">Analyze and adapt features for different firmware versions</p>
+        </div>
+        <div class="col-auto">
+            <a href="/Features" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Features
+            </a>
+        </div>
+    </div>
+
+    @if (Model.AnalysisResult == null)
+    {
+        <!-- Selection Form -->
+        <div class="row">
+            <div class="col-md-8 offset-md-2">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-gear"></i> Select Feature and Target Version</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" asp-page-handler="Analyze">
+                            <div class="mb-3">
+                                <label for="featureId" class="form-label fw-bold">Source Feature</label>
+                                <select class="form-select" id="featureId" name="featureId" required>
+                                    <option value="">-- Select a feature --</option>
+                                    @foreach (var feature in Model.AvailableFeatures)
+                                    {
+                                        <option value="@feature.Id" 
+                                                selected="@(feature.Id == Model.SelectedFeatureId)">
+                                            @feature.Name
+                                        </option>
+                                    }
+                                </select>
+                                <div class="form-text">Select the feature you want to adapt to another firmware version</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="targetVersionId" class="form-label fw-bold">Target Firmware Version</label>
+                                <select class="form-select" id="targetVersionId" name="targetVersionId" required>
+                                    <option value="">-- Select target version --</option>
+                                    @foreach (var version in Model.AvailableVersions)
+                                    {
+                                        <option value="@version.Id" selected="@(version.Id == Model.SelectedTargetVersionId)">
+                                            @version.Version
+                                            (@version.NpiProgram?.Name - @version.Stage)
+                                        </option>
+                                    }
+                                </select>
+                                <div class="form-text">Select the firmware version you want to adapt the feature for</div>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="bi bi-search"></i> Analyze Compatibility
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Analysis Results -->
+        <div class="row">
+            <div class="col-md-3">
+                <!-- Summary Card -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header @(Model.AnalysisResult.IsCompatible ? "bg-success" : "bg-warning") text-white">
+                        <h6 class="mb-0">
+                            <i class="bi @(Model.AnalysisResult.IsCompatible ? "bi-check-circle" : "bi-exclamation-triangle")"></i>
+                            Compatibility Status
+ </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <small class="text-muted">Compatibility Score</small>
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar @(Model.AnalysisResult.CompatibilityScore >= 0.8 ? "bg-success" : Model.AnalysisResult.CompatibilityScore >= 0.5 ? "bg-warning" : "bg-danger")" 
+                                     style="width: @(Model.AnalysisResult.CompatibilityScore * 100)%">
+                                    @((Model.AnalysisResult.CompatibilityScore * 100).ToString("F0"))%
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            @if (Model.AnalysisResult.CanAutoAdapt)
+                            {
+                                <form method="post" asp-page-handler="Apply">
+                                    <input type="hidden" name="featureId" value="@Model.SelectedFeatureId" />
+                                    <input type="hidden" name="targetVersionId" value="@Model.SelectedTargetVersionId" />
+                                    <button type="submit" class="btn btn-success w-100">
+                                        <i class="bi bi-magic"></i> Auto-Adapt Feature
+                                    </button>
+                                </form>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-warning w-100" disabled>
+                                    <i class="bi bi-exclamation-triangle"></i> Manual Review Required
+                                </button>
+                            }
+                            
+                            <form method="get">
+                                <button type="submit" class="btn btn-outline-secondary w-100">
+                                    <i class="bi bi-arrow-left"></i> Start Over
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Card -->
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0"><i class="bi bi-info-circle"></i> Feature Info</h6>
+                    </div>
+                    <div class="card-body small">
+                        <div class="mb-2">
+                            <strong>Source Feature:</strong><br/>
+                            @Model.AnalysisResult.SourceFeature.Name
+                        </div>
+                        <div class="mb-2">
+                            <strong>Target Version:</strong><br/>
+                            @Model.AnalysisResult.TargetVersion.Version
+                        </div>
+                        <div>
+                            <strong>Breaking Changes:</strong><br/>
+                            <span class="badge bg-danger">@Model.AnalysisResult.BreakingChanges.Count</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-9">
+                <!-- Breaking Changes -->
+                @if (Model.AnalysisResult.BreakingChanges.Any())
+                {
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-danger text-white">
+                            <h5 class="mb-0">
+                                <i class="bi bi-x-circle"></i>
+                                Breaking Changes (@Model.AnalysisResult.BreakingChanges.Count)
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group">
+                                @foreach (var change in Model.AnalysisResult.BreakingChanges)
+                                {
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">
+                                                    <span class="badge bg-@(change.Severity == Severity.Critical ? "danger" : change.Severity == Severity.High ? "warning" : "info")">
+                                                        @change.Severity
+                                                    </span>
+                                                    @change.Type
+                                                </h6>
+                                                <p class="mb-1">@change.Description</p>
+                                                <small class="text-muted">Affected: <code>@change.AffectedElement</code></small>
+                                            </div>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(change.SuggestedFix))
+                                        {
+                                            <div class="alert alert-info mt-2 mb-0">
+                                                <strong>Suggested Fix:</strong> @change.SuggestedFix
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Suggested Mappings -->
+                @if (Model.AnalysisResult.SuggestedMappings.Any())
+                {
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="bi bi-diagram-3"></i>
+                                Suggested Parameter Mappings (@Model.AnalysisResult.SuggestedMappings.Count)
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Source Parameter</th>
+                                            <th><i class="bi bi-arrow-right"></i></th>
+                                            <th>Target Parameter</th>
+                                            <th>Confidence</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var mapping in Model.AnalysisResult.SuggestedMappings)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <strong>@mapping.SourceParameter?.Name</strong><br/>
+                                                    <small class="text-muted">ID: @mapping.SourceParameter?.Id</small>
+                                                </td>
+                                                <td class="text-center">
+                                                    <i class="bi bi-arrow-right text-primary"></i>
+                                                </td>
+                                                <td>
+                                                    <strong>@mapping.TargetParameter?.Name</strong><br/>
+                                                    <small class="text-muted">ID: @mapping.TargetParameter?.Id</small>
+                                                </td>
+                                                <td>
+                                                    <div class="progress" style="width: 100px; height: 20px;">
+                                                        <div class="progress-bar" style="width: @(mapping.Confidence * 100)%">
+                                                            @((mapping.Confidence * 100).ToString("F0"))%
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    @if (mapping.RequiresReview)
+                                                    {
+                                                        <span class="badge bg-warning text-dark">
+                                                            <i class="bi bi-exclamation-triangle"></i> Review Required
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-success">
+                                                            <i class="bi bi-check-circle"></i> Auto-Map
+                                                        </span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                            @if (!string.IsNullOrEmpty(mapping.Notes))
+                                            {
+                                                <tr>
+                                                    <td colspan="5" class="bg-light">
+                                                        <small><i class="bi bi-info-circle text-info"></i> @mapping.Notes</small>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Recommendations -->
+                @if (Model.AnalysisResult.Recommendations.Any())
+                {
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">
+                                <i class="bi bi-lightbulb"></i>
+                                Recommendations
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="mb-0">
+                                @foreach (var recommendation in Model.AnalysisResult.Recommendations)
+                                {
+                                    <li>@recommendation</li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@* AI Chat Panel *@
+@await Html.PartialAsync("_ChatPanel", Model.CompatibilityChatContext)
+
+@section Scripts {
+    <script>
+        // Highlight source vs target version differences
+        document.getElementById('featureId')?.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const sourceVersion = selectedOption.getAttribute('data-version');
+            console.log('Source version:', sourceVersion);
+        });
+    </script>
+}

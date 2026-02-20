@@ -13,6 +13,39 @@ public partial class FirmwareDataService
         _context = context;
     }
 
+    // Helper methods for cross-collection operations
+    public async Task<Feature?> GetFeatureByIdAsync(Guid id)
+    {
+        return await _context.Features
+            .Include(f => f.Parameters)
+            .Include(f => f.Commands)
+            .FirstOrDefaultAsync(f => f.Id == id);
+    }
+
+    public async Task<FeatureCollection?> GetCollectionByIdAsync(Guid id)
+    {
+        return await _context.FeatureCollections
+            .Include(c => c.Features)
+            .FirstOrDefaultAsync(c => c.Id == id);
+    }
+
+    public async Task<FirmwareVersion?> GetFirmwareVersionByIdAsync(Guid id)
+    {
+        return await _context.FirmwareVersions
+            .FirstOrDefaultAsync(v => v.Id == id);
+    }
+
+    // Synchronous helper methods
+    public NpiProgram? GetNpiProgramById(Guid id)
+    {
+        return _context.NpiPrograms.FirstOrDefault(p => p.Id == id);
+    }
+
+    public FirmwareVersion? GetFirmwareVersionById(Guid id)
+    {
+        return _context.FirmwareVersions.FirstOrDefault(v => v.Id == id);
+    }
+
     public async Task SeedDataAsync()
     {
         // Only seed if database is empty

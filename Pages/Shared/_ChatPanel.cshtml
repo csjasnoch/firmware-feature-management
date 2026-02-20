@@ -1,0 +1,89 @@
+@model WebApp.Models.ChatContext
+
+@* AI Chat Assistance Panel - Reusable Component *@
+
+<div id="chatPanel" class="chat-panel @(Model != null ? "" : "collapsed")">
+    <div class="chat-header">
+        <h3 class="chat-title">
+            <i class="bi bi-robot"></i>
+            AI Assistant
+        </h3>
+        <button type="button" class="chat-toggle-btn" id="chatToggleBtn" title="Toggle Chat Panel">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+    </div>
+
+    <div class="chat-body">
+        <!-- Suggested Prompts Section -->
+        <div class="suggested-prompts" id="suggestedPrompts">
+            <h4 class="suggested-prompts-title">Suggested Questions:</h4>
+            <div class="suggested-prompts-list" id="suggestedPromptsList">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Messages Container -->
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-welcome">
+                <i class="bi bi-chat-dots-fill"></i>
+                <p>Hello! I'm here to help you with firmware feature management.</p>
+                <p class="text-muted small">Ask me anything or click a suggested question below.</p>
+            </div>
+        </div>
+
+        <!-- Chat Input Form -->
+        <div class="chat-input-container">
+            <form id="chatForm" class="chat-form">
+                <div class="input-group">
+                    <textarea 
+                        class="form-control chat-input" 
+                        id="chatInput" 
+                        placeholder="Type your question..."
+                        rows="2"
+                        maxlength="1000"></textarea>
+                    <button type="submit" class="btn btn-primary chat-send-btn" id="chatSendBtn">
+                        <i class="bi bi-send-fill"></i>
+                        Send
+                    </button>
+                </div>
+                <div class="chat-status text-muted small" id="chatStatus"></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@* Chat Context Data (passed to JavaScript) *@
+<script type="application/json" id="chatContextData">
+@if (Model != null)
+{
+    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
+    {
+        PageContext = Model.PageContext.ToString(),
+        CurrentFirmwareVersion = Model.CurrentFirmwareVersion,
+        ActiveCollectionId = Model.ActiveCollectionId,
+        ActiveCollectionName = Model.ActiveCollectionName,
+        CurrentFeatureId = Model.CurrentFeatureId,
+        CurrentFeatureName = Model.CurrentFeatureName,
+        CurrentNpiProgram = Model.CurrentNpiProgram,
+        SessionId = Model.SessionId ?? Guid.NewGuid().ToString()
+    }))
+}
+else
+{
+    @:{"PageContext":"Dashboard","SessionId":"@Guid.NewGuid().ToString()"}
+}
+</script>
+
+@section Scripts {
+    <script src="~/js/chat.js" asp-append-version="true"></script>
+    <script>
+        // Initialize chat when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            const contextData = JSON.parse(document.getElementById('chatContextData').textContent);
+            window.chatApp = new ChatApp(contextData);
+            window.chatApp.init();
+        });
+    </script>
+}

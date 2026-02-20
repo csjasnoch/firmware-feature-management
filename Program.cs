@@ -6,13 +6,35 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
+builder.Services.AddControllers(); // Add API controller support
+
+// Add session support for ContextService
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
 
 // Add Entity Framework Core with SQLite
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") 
         ?? "Data Source=firmwarefeatures.db"));
 
+// Add HttpContextAccessor for ContextService
+builder.Services.AddHttpContextAccessor();
+
+// Add HttpClient for ChatService
+builder.Services.AddHttpClient("OpenAI", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+// Register services
 builder.Services.AddScoped<FirmwareDataService>();
+builder.Services.AddScoped<ContextService>();
+builder.Services.AddScoped<IChatService, ChatService>();
 
 var app = builder.Build();
 
@@ -39,9 +61,13 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
+// Enable session middleware
+app.UseSession();
+
 app.UseAuthorization();
 
 app.MapStaticAssets();
+app.MapControllers(); // Map API controller routes
 app.MapRazorPages()
    .WithStaticAssets();
 
